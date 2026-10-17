@@ -13,13 +13,6 @@ dependencies = [
     "tomli-w>=1.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-asyncio",
-    "pytest-aiohttp",
-]
-
 [project.scripts]
 syncd = "syncd.main:main"
 

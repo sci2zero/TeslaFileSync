@@ -1,3 +1,20 @@
+[project]
+name = "synak"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["syncd", "synctl", "syncui"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "pytest-aiohttp"]
+
+[tool.uv.workspace]
+members = ["syncd", "synctl", "syncui"]
+
+[tool.uv.sources]
+syncd  = { workspace = true }
+synctl = { workspace = true }
+syncui = { workspace = true }
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["syncd/tests", "synctl/tests", "tests/integration"]
