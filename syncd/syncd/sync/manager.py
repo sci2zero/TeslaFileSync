@@ -19,6 +19,16 @@ class ProviderConfigError(Exception):
     pass
 
 
+def _validate_schema(pair: PairConfig, provider_cls: Type[SyncProvider]) -> None:
+    if hasattr(provider_cls, "SCHEMA"):
+        try:
+            jsonschema.validate(pair.provider, provider_cls.SCHEMA)
+        except jsonschema.ValidationError as e:
+            raise ProviderConfigError(
+                f"Invalid provider config for pair {pair.id!r}: {e.message}"
+            ) from e
+
+
 class SyncManager:
     def __init__(self) -> None:
         self._providers: dict[str, SyncProvider] = {}
@@ -55,6 +65,16 @@ class SyncManager:
             raise PairNotFoundError(pair_id)
         return self._providers[pair_id]
 
+    @staticmethod
+    def validate(pairs: list[PairConfig]) -> None:
+        """Raise ProviderConfigError if any built-in provider config fails its schema."""
+        for pair in pairs:
+            try:
+                provider_cls = registry.get(pair.mode)
+            except UnknownProviderError:
+                continue  # start_all() logs and skips these
+            _validate_schema(pair, provider_cls)
+
     async def _start_pair(self, pair: PairConfig) -> None:
         provider_cls: Type[SyncProvider]
         try:
@@ -70,13 +90,7 @@ class SyncManager:
             # without a dedicated Python wrapper — just set binary = "..." in config.
             provider_cls = SubprocessProvider
 
-        if hasattr(provider_cls, "SCHEMA"):
-            try:
-                jsonschema.validate(pair.provider, provider_cls.SCHEMA)
-            except jsonschema.ValidationError as e:
-                raise ProviderConfigError(
-                    f"Invalid provider config for pair {pair.id!r}: {e.message}"
-                ) from e
+        _validate_schema(pair, provider_cls)
 
         context = SyncContext(
             pair_id=pair.id,

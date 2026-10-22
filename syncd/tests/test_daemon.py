@@ -1,9 +1,12 @@
 import asyncio
+import dataclasses
 import signal
 import pytest
 
-from syncd.config import AppConfig, DaemonConfig, PeersConfig
+import syncd.sync.providers  # noqa: F401 — registers built-in providers
+from syncd.config import AppConfig, DaemonConfig, PairConfig, PeersConfig
 from syncd.daemon import Daemon
+from syncd.sync.manager import ProviderConfigError, SyncManager
 
 
 def make_config() -> AppConfig:
@@ -59,3 +62,29 @@ async def test_startup_and_shutdown_stubs_do_not_raise():
     daemon = Daemon(make_config())
     await daemon._startup()
     await daemon._shutdown()
+
+
+def invalid_p2p_pair() -> PairConfig:
+    # The built-in p2p provider's schema requires "peers".
+    return PairConfig(id="p", mode="p2p", local="/tmp/x", direction="bidirectional",
+                      interval=0, provider={})
+
+
+async def test_apply_config_invalid_provider_config_keeps_running_pairs():
+    daemon = Daemon(make_config())
+    running = daemon._manager = SyncManager()
+    with pytest.raises(ProviderConfigError):
+        await daemon.apply_config(dataclasses.replace(make_config(), pairs=[invalid_p2p_pair()]))
+    assert daemon._manager is running
+    assert daemon._config.pairs == []
+
+
+async def test_reload_config_invalid_provider_config_logs_error(caplog, tmp_path):
+    import logging
+    config_file = tmp_path / "config.toml"
+    config_file.write_text('[[pairs]]\nid = "p"\nmode = "p2p"\nlocal = "/tmp/x"\ndirection = "bidirectional"\n')
+    daemon = Daemon(make_config(), config_path=str(config_file))
+    with caplog.at_level(logging.ERROR, logger="syncd.daemon"):
+        await daemon._reload_config()
+    assert "keeping previous config" in caplog.text
+    assert daemon._config.pairs == []

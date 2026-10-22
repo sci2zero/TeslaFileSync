@@ -4,7 +4,7 @@ import logging
 
 from syncd.config import AppConfig, ConfigError, load_config
 from syncd.platform.signals import register_signal_handlers
-from syncd.sync.manager import SyncManager
+from syncd.sync.manager import ProviderConfigError, SyncManager
 from syncd.api.server import ApiServer
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,9 @@ class Daemon:
         )
         old_log_level = self._config.daemon.log_level
 
+        # Reject invalid provider config before stopping the running pairs.
+        SyncManager.validate(new_config.pairs)
+
         if self._manager is not None:
             await self._manager.stop_all()
         self._manager = SyncManager()
@@ -108,5 +111,9 @@ class Daemon:
         except ConfigError as e:
             logger.error("Config reload failed: %s", e)
             return
-        await self.apply_config(new_config)
+        try:
+            await self.apply_config(new_config)
+        except ProviderConfigError as e:
+            logger.error("Config reload failed, keeping previous config: %s", e)
+            return
         logger.info("Config reloaded from %s", self._config_path)

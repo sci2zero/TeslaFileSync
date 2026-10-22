@@ -78,6 +78,7 @@ async def handle_config_save(request: web.Request) -> web.Response:
 
 async def handle_config_apply(request: web.Request) -> web.Response:
     from syncd.config import parse_config_from_dict, ConfigError
+    from syncd.sync.manager import ProviderConfigError
     try:
         body = await request.json()
     except Exception:
@@ -89,6 +90,8 @@ async def handle_config_apply(request: web.Request) -> web.Response:
     daemon = _state(request)["daemon"]
     try:
         await daemon.apply_config(new_config)
+    except ProviderConfigError as e:
+        return _error(str(e), status=422)
     except Exception as e:
         return _error(str(e), status=500)
     return _json(dataclasses.asdict(daemon._config))
