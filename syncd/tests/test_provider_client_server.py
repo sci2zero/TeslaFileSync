@@ -204,3 +204,37 @@ async def test_connection_refused_sets_error_state(tmp_path):
     assert p._state == "error"
     assert "Cannot connect" in p._error
     await p.stop()
+
+
+# --- provider mismatch ---
+
+async def test_client_errors_when_remote_uses_different_provider(tmp_path, caplog):
+    import socket
+    from syncd.sync.providers.p2p import P2PProvider
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+
+    (tmp_path / "p2p").mkdir()
+    (tmp_path / "cs").mkdir()
+    (tmp_path / "p2p" / "a.txt").write_text("hello")
+
+    peer = P2PProvider()
+    await peer.start(SyncContext(
+        pair_id="mismatch", local=str(tmp_path / "p2p"), direction="bidirectional",
+        interval=3600, provider_config={"peers": [], "port": port},
+    ))
+    client = ClientServerProvider()
+    await client.start(make_context(tmp_path / "cs", mode="client", port=port, interval=3600))
+    try:
+        await client._run_client_session()
+        s = await client.status()
+        assert s.state == "error"
+        assert "'p2p'" in s.error and "'client-server'" in s.error
+        assert not (tmp_path / "cs" / "a.txt").exists()
+        await asyncio.sleep(0.1)  # let the peer's handler finish
+        assert "Rejected peer connection" in caplog.text
+    finally:
+        await client.stop()
+        await peer.stop()

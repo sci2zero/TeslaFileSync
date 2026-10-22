@@ -142,10 +142,13 @@ class P2PProvider(BaseSyncProvider):
                     await self._sync_with_peer(peer_addr)
                 except ConnectionRefusedError:
                     logger.warning("Peer %s unreachable", peer_addr)
+                except proto.ProviderMismatchError as e:
+                    self._error = f"Peer {peer_addr}: {e}"
+                    logger.error("Sync with peer %s aborted: %s", peer_addr, e)
                 except Exception:
                     logger.exception("Sync with peer %s failed", peer_addr)
             self._last_sync = time.time()
-            self._state = "idle"
+            self._state = "error" if self._error else "idle"
         except asyncio.CancelledError:
             self._state = "stopped"
             raise
@@ -162,11 +165,12 @@ class P2PProvider(BaseSyncProvider):
         logger.info("Starting sync with peer %s", peer_addr)
         reader, writer = await asyncio.open_connection(host, port, limit=proto.READER_LIMIT)
         try:
-            await proto.send_message(writer, proto.hello_msg(self._node_id, self._index.all_entries_dict()))
+            await proto.send_message(writer, proto.hello_msg(self.NAME, self._node_id, self._index.all_entries_dict()))
 
             msg = await proto.read_message(reader)
             if not msg or msg["type"] != "HELLO":
                 return
+            proto.check_hello_provider(msg, self.NAME)
             remote_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
 
             await self._apply_remote_deletions(remote_index, peer_addr)
@@ -239,9 +243,11 @@ class P2PProvider(BaseSyncProvider):
             msg = await proto.read_message(reader)
             if not msg or msg["type"] != "HELLO":
                 return
-            peer_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
 
-            await proto.send_message(writer, proto.hello_msg(self._node_id, self._index.all_entries_dict()))
+            # Reply before checking so the initiator sees our provider name and fails too.
+            await proto.send_message(writer, proto.hello_msg(self.NAME, self._node_id, self._index.all_entries_dict()))
+            proto.check_hello_provider(msg, self.NAME)
+            peer_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
             await self._apply_remote_deletions(peer_index, str(peer))
 
             # Phase 1: serve GET_FILE requests until SYNC_DONE
@@ -270,6 +276,8 @@ class P2PProvider(BaseSyncProvider):
                                              FileEntry.from_dict(req["entry"]), str(peer))
 
             await asyncio.to_thread(self._index.save)
+        except proto.ProviderMismatchError as e:
+            logger.error("Rejected peer connection from %s: %s", peer, e)
         except Exception:
             logger.exception("Error handling peer connection from %s", peer)
         finally:

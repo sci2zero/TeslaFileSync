@@ -2,8 +2,10 @@
 Newline-delimited JSON protocol over TCP (asyncio streams).
 
 Flow for both P2P and client-server sessions:
-  1. Initiator → Listener : HELLO  (carries full index)
+  1. Initiator → Listener : HELLO  (carries provider name and full index)
   2. Listener  → Initiator: HELLO
+     Each side checks the other's provider name; a mismatch aborts the session
+     with ProviderMismatchError.
   3. Initiator → Listener : GET_FILE  (repeated for each file needed)
   4. Listener  → Initiator: FILE_DATA or FILE_DATA_STREAM
   5. Initiator → Listener : SYNC_DONE  (phase boundary: stop requesting)
@@ -28,6 +30,17 @@ from typing import Any
 STREAM_THRESHOLD = 64 * 1024 * 1024  # bytes; files at or above this use binary streaming
 
 READER_LIMIT = 96 * 1024 * 1024
+
+
+class ProviderMismatchError(Exception):
+    """The remote node in a pair is running a different sync provider."""
+
+    def __init__(self, expected: str, actual: str | None) -> None:
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"Remote node uses provider {actual!r}, expected {expected!r}"
+        )
 
 
 async def read_message(reader: asyncio.StreamReader) -> dict[str, Any] | None:
@@ -55,8 +68,15 @@ def decode_content(encoded: str) -> bytes:
 
 # --- message constructors ---
 
-def hello_msg(node_id: str, index: dict[str, Any]) -> dict[str, Any]:
-    return {"type": "HELLO", "node_id": node_id, "index": index}
+def hello_msg(provider: str, node_id: str, index: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "HELLO", "provider": provider, "node_id": node_id, "index": index}
+
+
+def check_hello_provider(msg: dict[str, Any], expected: str) -> None:
+    """Raise ProviderMismatchError if a HELLO came from a node using another provider."""
+    actual = msg.get("provider")
+    if actual != expected:
+        raise ProviderMismatchError(expected, actual)
 
 
 def get_file_msg(path: str) -> dict[str, Any]:

@@ -131,11 +131,12 @@ class ClientServerProvider(BaseSyncProvider):
         peer = writer.get_extra_info("peername")
         logger.info("Client connected: %s", peer)
         try:
-            await proto.send_message(writer, proto.hello_msg(self._node_id, self._index.all_entries_dict()))
+            await proto.send_message(writer, proto.hello_msg(self.NAME, self._node_id, self._index.all_entries_dict()))
 
             msg = await proto.read_message(reader)
             if not msg or msg["type"] != "HELLO":
                 return
+            proto.check_hello_provider(msg, self.NAME)
             client_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
             await self._apply_remote_deletions(client_index, f"client {peer}")
 
@@ -166,6 +167,8 @@ class ClientServerProvider(BaseSyncProvider):
 
             await asyncio.to_thread(self._index.save)
             self._last_sync = time.time()
+        except proto.ProviderMismatchError as e:
+            logger.error("Rejected client %s: %s", peer, e)
         except Exception:
             logger.exception("Error handling client %s", peer)
         finally:
@@ -192,11 +195,12 @@ class ClientServerProvider(BaseSyncProvider):
             port = ctx.provider_config["port"]
             reader, writer = await asyncio.open_connection(host, port, limit=proto.READER_LIMIT)
             try:
-                await proto.send_message(writer, proto.hello_msg(self._node_id, self._index.all_entries_dict()))
+                await proto.send_message(writer, proto.hello_msg(self.NAME, self._node_id, self._index.all_entries_dict()))
 
                 msg = await proto.read_message(reader)
                 if not msg or msg["type"] != "HELLO":
                     return
+                proto.check_hello_provider(msg, self.NAME)
                 server_index = {
                     p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()
                 }
@@ -267,6 +271,10 @@ class ClientServerProvider(BaseSyncProvider):
             self._error = f"Cannot connect to server at {ctx.provider_config.get('host', '127.0.0.1')}:{ctx.provider_config['port']}"
             self._state = "error"
             logger.warning("Client cannot reach server for pair %r", ctx.pair_id)
+        except proto.ProviderMismatchError as e:
+            self._error = f"Server: {e}"
+            self._state = "error"
+            logger.error("Client session aborted for pair %r: %s", ctx.pair_id, e)
         except Exception as e:
             self._error = str(e)
             self._state = "error"
