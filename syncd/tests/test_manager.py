@@ -225,3 +225,26 @@ async def test_provider_registration():
     from syncd.sync.registry import registry
     assert "p2p" in registry.list_names()
     assert "client-server" in registry.list_names()
+
+
+async def test_apply_restarts_only_changed_pairs():
+    import syncd.sync.manager as mgr_module
+    original = mgr_module.registry
+    try:
+        reg = ProviderRegistry()
+        reg.register(MockProvider)
+        mgr_module.registry = reg
+        manager = SyncManager()
+        await manager.start_all([make_pair("same"), make_pair("changed"), make_pair("removed")])
+        await manager.pause("same")
+        same, changed, removed = (manager._providers[i] for i in ("same", "changed", "removed"))
+
+        await manager.apply([make_pair("same"), make_pair("changed", interval=60), make_pair("added")])
+
+        assert manager._providers["same"] is same
+        assert (await manager.status("same")).state == "paused"
+        assert changed.stopped and manager._providers["changed"] is not changed
+        assert removed.stopped and "removed" not in manager._providers
+        assert "added" in manager._providers
+    finally:
+        mgr_module.registry = original

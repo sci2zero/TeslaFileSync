@@ -6,7 +6,7 @@ import pytest
 import syncd.sync.providers  # noqa: F401 — registers built-in providers
 from syncd.config import AppConfig, DaemonConfig, PairConfig, PeersConfig
 from syncd.daemon import Daemon
-from syncd.sync.manager import ProviderConfigError, SyncManager
+from syncd.sync.manager import ProviderConfigError
 
 
 def make_config() -> AppConfig:
@@ -72,7 +72,7 @@ def invalid_p2p_pair() -> PairConfig:
 
 async def test_apply_config_invalid_provider_config_keeps_running_pairs():
     daemon = Daemon(make_config())
-    running = daemon._manager = SyncManager()
+    running = daemon._manager
     with pytest.raises(ProviderConfigError):
         await daemon.apply_config(dataclasses.replace(make_config(), pairs=[invalid_p2p_pair()]))
     assert daemon._manager is running

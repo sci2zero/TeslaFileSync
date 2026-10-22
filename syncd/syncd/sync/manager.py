@@ -32,18 +32,33 @@ def _validate_schema(pair: PairConfig, provider_cls: Type[SyncProvider]) -> None
 class SyncManager:
     def __init__(self) -> None:
         self._providers: dict[str, SyncProvider] = {}
+        self._configs: dict[str, PairConfig] = {}
 
     async def start_all(self, pairs: list[PairConfig]) -> None:
         for pair in pairs:
             await self._start_pair(pair)
 
     async def stop_all(self) -> None:
-        for pair_id, provider in list(self._providers.items()):
-            try:
-                await provider.stop()
-            except Exception:
-                logger.exception("Error stopping provider for pair %s", pair_id)
-        self._providers.clear()
+        for pair_id in list(self._providers):
+            await self._stop_pair(pair_id)
+
+    async def apply(self, pairs: list[PairConfig]) -> None:
+        """Restart only the pairs whose config changed; unchanged pairs keep their state (e.g. paused)."""
+        wanted = {pair.id: pair for pair in pairs}
+        for pair_id in list(self._providers):
+            if self._configs[pair_id] != wanted.get(pair_id):
+                await self._stop_pair(pair_id)
+        for pair in pairs:
+            if pair.id not in self._providers:
+                await self._start_pair(pair)
+
+    async def _stop_pair(self, pair_id: str) -> None:
+        provider = self._providers.pop(pair_id)
+        del self._configs[pair_id]
+        try:
+            await provider.stop()
+        except Exception:
+            logger.exception("Error stopping provider for pair %s", pair_id)
 
     async def trigger(self, pair_id: str) -> None:
         await self._get(pair_id).trigger()
@@ -109,4 +124,5 @@ class SyncManager:
             logger.error("Failed to start provider for pair %r: %s", pair.id, e)
             return
         self._providers[pair.id] = provider
+        self._configs[pair.id] = pair
         logger.info("Started provider %r for pair %r", pair.mode, pair.id)

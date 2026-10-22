@@ -16,7 +16,7 @@ class Daemon:
         self._config_path = config_path
         self._shutdown_event: asyncio.Event | None = None
         self._api: ApiServer | None = None
-        self._manager: SyncManager | None = None
+        self._manager = SyncManager()
         self._app_state: dict = {}
 
     async def run(self) -> None:
@@ -35,7 +35,6 @@ class Daemon:
     async def _startup(self) -> None:
         import syncd.sync.providers  # noqa: F401 — triggers provider auto-registration
 
-        self._manager = SyncManager()
         await self._manager.start_all(self._config.pairs)
 
         self._app_state = {
@@ -49,8 +48,7 @@ class Daemon:
     async def _shutdown(self) -> None:
         if self._api is not None:
             await self._api.stop()
-        if self._manager is not None:
-            await self._manager.stop_all()
+        await self._manager.stop_all()
 
     def _handle_sigterm(self) -> None:
         logger.info("SIGTERM received, shutting down")
@@ -69,14 +67,10 @@ class Daemon:
         # Reject invalid provider config before stopping the running pairs.
         SyncManager.validate(new_config.pairs)
 
-        if self._manager is not None:
-            await self._manager.stop_all()
-        self._manager = SyncManager()
-        await self._manager.start_all(new_config.pairs)
+        await self._manager.apply(new_config.pairs)
 
         self._config = new_config
         self._app_state["config"] = self._config
-        self._app_state["manager"] = self._manager
 
         if new_config.daemon.log_level != old_log_level:
             logging.getLogger().setLevel(new_config.daemon.log_level.upper())
