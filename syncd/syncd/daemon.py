@@ -3,7 +3,7 @@ import dataclasses
 import logging
 from typing import Any
 
-from syncd.config import AppConfig, ConfigError, load_config, parse_config_from_dict
+from syncd.config import AppConfig, ConfigError, load_config, parse_config_from_dict, save_config
 from syncd.platform.signals import register_signal_handlers
 from syncd.sync.base import ProviderStatus
 from syncd.sync.manager import ProviderConfigError, SyncManager
@@ -102,18 +102,7 @@ class Daemon:
         """Serialize the current in-memory config back to the config file on disk."""
         if not self._config_path:
             raise RuntimeError("No config file path set — daemon was started without -c")
-        import tomli_w
-        raw = dataclasses.asdict(self._config)
-        # Convert tuples (e.g. exclude) back to lists for TOML serialization
-        def _fix(obj):
-            if isinstance(obj, dict):
-                return {k: _fix(v) for k, v in obj.items()}
-            if isinstance(obj, (list, tuple)):
-                return [_fix(i) for i in obj]
-            return obj
-        raw = _fix(raw)
-        with open(self._config_path, "wb") as f:
-            tomli_w.dump(raw, f)
+        save_config(self._config, self._config_path)
         logger.info("Config saved to %s", self._config_path)
 
     async def reload_config(self) -> None:

@@ -8,6 +8,7 @@ from syncd.config import (
     DaemonConfig,
     PairConfig,
     load_config,
+    save_config,
 )
 
 
@@ -223,3 +224,20 @@ address = "192.168.1.10:51820"
     cfg = load_config(path)
     assert cfg.peers.discovery == "mdns"
     assert cfg.peers.static == [{"id": "peer-abc", "address": "192.168.1.10:51820"}]
+
+
+def test_save_config_round_trips(tmp_path):
+    path = write_toml(tmp_path, """
+[[pairs]]
+id = "photos"
+mode = "p2p"
+local = "/tmp/photos"
+direction = "push"
+exclude = ["*.tmp"]
+
+[pairs.provider]
+peers = ["10.0.0.2"]
+""")
+    cfg = load_config(path)
+    save_config(cfg, path)
+    assert load_config(path) == cfg

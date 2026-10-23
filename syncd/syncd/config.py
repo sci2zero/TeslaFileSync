@@ -1,7 +1,10 @@
+import dataclasses
 import os
 import tomllib
 from dataclasses import dataclass
 from typing import Any
+
+import tomli_w
 
 from syncd.platform.ipc import default_socket_address
 
@@ -117,3 +120,17 @@ def load_config(path: str = DEFAULT_CONFIG_PATH) -> AppConfig:
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"Invalid TOML in {path}: {e}")
     return parse_config_from_dict(raw)
+
+
+def save_config(config: AppConfig, path: str) -> None:
+    """Write config to a TOML file in the same structure load_config() reads."""
+    def _fix(obj: Any) -> Any:
+        # tomli_w cannot serialize tuples (e.g. exclude)
+        if isinstance(obj, dict):
+            return {k: _fix(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_fix(i) for i in obj]
+        return obj
+
+    with open(path, "wb") as f:
+        tomli_w.dump(_fix(dataclasses.asdict(config)), f)
