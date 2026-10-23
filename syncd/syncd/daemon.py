@@ -4,6 +4,7 @@ import logging
 
 from syncd.config import AppConfig, ConfigError, load_config
 from syncd.platform.signals import register_signal_handlers
+from syncd.sync.base import ProviderStatus
 from syncd.sync.manager import ProviderConfigError, SyncManager
 from syncd.api.server import ApiServer
 
@@ -17,12 +18,11 @@ class Daemon:
         self._shutdown_event: asyncio.Event | None = None
         self._api: ApiServer | None = None
         self._manager = SyncManager()
-        self._app_state: dict = {}
 
     async def run(self) -> None:
         self._shutdown_event = asyncio.Event()
         loop = asyncio.get_running_loop()
-        register_signal_handlers(loop, self._handle_sigterm, self._reload_config)
+        register_signal_handlers(loop, self.shutdown, self.reload_config)
 
         logger.info("syncd starting")
         try:
@@ -37,21 +37,35 @@ class Daemon:
 
         await self._manager.start_all(self._config.pairs)
 
-        self._app_state = {
-            "daemon": self,
-            "config": self._config,
-            "manager": self._manager,
-        }
         self._api = ApiServer(self._config.daemon.api_socket)
-        await self._api.start(self._app_state)
+        await self._api.start(self)
 
     async def _shutdown(self) -> None:
         if self._api is not None:
             await self._api.stop()
         await self._manager.stop_all()
 
-    def _handle_sigterm(self) -> None:
-        logger.info("SIGTERM received, shutting down")
+    @property
+    def config(self) -> AppConfig:
+        return self._config
+
+    async def statuses(self) -> list[ProviderStatus]:
+        return await self._manager.all_statuses()
+
+    async def pair_status(self, pair_id: str) -> ProviderStatus:
+        return await self._manager.status(pair_id)
+
+    async def trigger(self, pair_id: str) -> None:
+        await self._manager.trigger(pair_id)
+
+    async def pause(self, pair_id: str) -> None:
+        await self._manager.pause(pair_id)
+
+    async def resume(self, pair_id: str) -> None:
+        await self._manager.resume(pair_id)
+
+    def shutdown(self) -> None:
+        logger.info("Shutdown requested")
         if self._shutdown_event:
             self._shutdown_event.set()
 
@@ -70,7 +84,6 @@ class Daemon:
         await self._manager.apply(new_config.pairs)
 
         self._config = new_config
-        self._app_state["config"] = self._config
 
         if new_config.daemon.log_level != old_log_level:
             logging.getLogger().setLevel(new_config.daemon.log_level.upper())
@@ -96,7 +109,7 @@ class Daemon:
             tomli_w.dump(raw, f)
         logger.info("Config saved to %s", self._config_path)
 
-    async def _reload_config(self) -> None:
+    async def reload_config(self) -> None:
         if not self._config_path:
             logger.warning("No config path set, cannot reload")
             return
