@@ -5,7 +5,7 @@ from aiohttp.test_utils import TestClient, TestServer
 import aiohttp.web as web
 
 from syncd.api.routes import build_routes
-from syncd.config import AppConfig, DaemonConfig, PeersConfig
+from syncd.config import AppConfig, DaemonConfig, PeersConfig, parse_config_from_dict
 from syncd.sync.base import ProviderStatus
 
 
@@ -41,8 +41,8 @@ class MockDaemon:
     async def resume(self, pair_id: str) -> None:
         await self.pair_status(pair_id)
 
-    async def apply_config(self, new_config: AppConfig) -> None:
-        self.config = new_config
+    async def apply_config(self, raw: dict) -> None:
+        self.config = parse_config_from_dict(raw)
 
     async def reload_config(self) -> None:
         self.reload_called = True
@@ -168,3 +168,8 @@ async def test_shutdown_calls_sigterm_handler(aiohttp_client):
     assert resp.status == 200
     assert daemon.shutdown_called
 
+
+
+async def test_config_apply_invalid_config_returns_422(client):
+    resp = await client.post("/config/apply", json={"pairs": [{"id": "x"}]})
+    assert resp.status == 422

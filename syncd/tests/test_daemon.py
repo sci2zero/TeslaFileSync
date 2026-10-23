@@ -1,12 +1,10 @@
 import asyncio
-import dataclasses
 import signal
 import pytest
 
 import syncd.sync.providers  # noqa: F401 — registers built-in providers
-from syncd.config import AppConfig, DaemonConfig, PairConfig, PeersConfig
+from syncd.config import AppConfig, ConfigError, DaemonConfig, PeersConfig
 from syncd.daemon import Daemon
-from syncd.sync.manager import ProviderConfigError
 
 
 def make_config() -> AppConfig:
@@ -64,17 +62,15 @@ async def test_startup_and_shutdown_stubs_do_not_raise():
     await daemon._shutdown()
 
 
-def invalid_p2p_pair() -> PairConfig:
-    # The built-in p2p provider's schema requires "peers".
-    return PairConfig(id="p", mode="p2p", local="/tmp/x", direction="bidirectional",
-                      interval=0, provider={})
+# The built-in p2p provider's schema requires "peers".
+INVALID_P2P_PAIR = {"id": "p", "mode": "p2p", "local": "/tmp/x", "direction": "bidirectional"}
 
 
 async def test_apply_config_invalid_provider_config_keeps_running_pairs():
     daemon = Daemon(make_config())
     running = daemon._manager
-    with pytest.raises(ProviderConfigError):
-        await daemon.apply_config(dataclasses.replace(make_config(), pairs=[invalid_p2p_pair()]))
+    with pytest.raises(ConfigError):
+        await daemon.apply_config({"pairs": [INVALID_P2P_PAIR]})
     assert daemon._manager is running
     assert daemon._config.pairs == []
 

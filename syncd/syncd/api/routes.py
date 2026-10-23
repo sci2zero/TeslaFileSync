@@ -4,7 +4,7 @@ from typing import Any
 
 import aiohttp.web as web
 
-from syncd.api.control import DaemonControl
+from syncd.api.control import ConfigError, DaemonControl
 
 VERSION = "0.1.0"
 _START_TIME = time.time()
@@ -72,20 +72,14 @@ async def handle_config_save(request: web.Request) -> web.Response:
 
 
 async def handle_config_apply(request: web.Request) -> web.Response:
-    from syncd.config import parse_config_from_dict, ConfigError
-    from syncd.sync.manager import ProviderConfigError
     try:
         body = await request.json()
     except Exception:
         return _error("request body must be valid JSON", status=400)
-    try:
-        new_config = parse_config_from_dict(body)
-    except ConfigError as e:
-        return _error(str(e), status=422)
     daemon = _daemon(request)
     try:
-        await daemon.apply_config(new_config)
-    except ProviderConfigError as e:
+        await daemon.apply_config(body)
+    except ConfigError as e:
         return _error(str(e), status=422)
     except Exception as e:
         return _error(str(e), status=500)
