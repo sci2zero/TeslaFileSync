@@ -23,7 +23,6 @@ PAIRS_RESPONSE = [
 CONFIG_RESPONSE = {
     "daemon": {"api_socket": "/tmp/test.sock", "log_level": "info"},
     "pairs": [],
-    "peers": {"discovery": "static", "static": []},
 }
 
 

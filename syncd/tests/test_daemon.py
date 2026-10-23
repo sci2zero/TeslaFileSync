@@ -3,7 +3,7 @@ import signal
 import pytest
 
 import syncd.sync.providers  # noqa: F401 — registers built-in providers
-from syncd.config import AppConfig, ConfigError, DaemonConfig, PeersConfig
+from syncd.config import AppConfig, ConfigError, DaemonConfig
 from syncd.daemon import Daemon
 
 
@@ -11,7 +11,6 @@ def make_config() -> AppConfig:
     return AppConfig(
         daemon=DaemonConfig(api_socket="/tmp/test.sock", log_level="info"),
         pairs=[],
-        peers=PeersConfig(discovery="static", static=[]),
     )
 
 

@@ -205,27 +205,6 @@ interval = 300
     assert cfg.pairs[0].interval == 300
 
 
-def test_peers_defaults(tmp_path):
-    path = write_toml(tmp_path, "")
-    cfg = load_config(path)
-    assert cfg.peers.discovery == "static"
-    assert cfg.peers.static == []
-
-
-def test_peers_explicit(tmp_path):
-    path = write_toml(tmp_path, """
-[peers]
-discovery = "mdns"
-
-[[peers.static]]
-id = "peer-abc"
-address = "192.168.1.10:51820"
-""")
-    cfg = load_config(path)
-    assert cfg.peers.discovery == "mdns"
-    assert cfg.peers.static == [{"id": "peer-abc", "address": "192.168.1.10:51820"}]
-
-
 def test_save_config_round_trips(tmp_path):
     path = write_toml(tmp_path, """
 [[pairs]]

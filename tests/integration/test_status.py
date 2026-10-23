@@ -25,17 +25,11 @@ def test_config_has_daemon_section(http_client):
     data = http_client.get("/config").json()
     assert "daemon" in data
     assert "pairs" in data
-    assert "peers" in data
 
 
 def test_pairs_returns_empty_list(http_client):
     data = http_client.get("/pairs").json()
     assert data == []
-
-
-def test_peers_returns_200(http_client):
-    resp = http_client.get("/peers")
-    assert resp.status_code == 200
 
 
 def test_config_reload_returns_200(http_client):

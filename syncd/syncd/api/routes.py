@@ -21,7 +21,6 @@ def build_routes() -> list[web.RouteDef]:
         web.post("/pairs/{id}/sync", handle_pair_sync),
         web.post("/pairs/{id}/pause", handle_pair_pause),
         web.post("/pairs/{id}/resume", handle_pair_resume),
-        web.get("/peers", handle_peers),
         web.post("/shutdown", handle_shutdown),
     ]
 
@@ -121,10 +120,6 @@ async def handle_pair_pause(request: web.Request) -> web.Response:
 
 async def handle_pair_resume(request: web.Request) -> web.Response:
     return await _pair_action(request, "resume")
-
-
-async def handle_peers(request: web.Request) -> web.Response:
-    return _json(dataclasses.asdict(_daemon(request).config.peers))
 
 
 async def handle_shutdown(request: web.Request) -> web.Response:

@@ -36,16 +36,9 @@ class PairConfig:
 
 
 @dataclass(frozen=True)
-class PeersConfig:
-    discovery: str
-    static: list[dict[str, str]]
-
-
-@dataclass(frozen=True)
 class AppConfig:
     daemon: DaemonConfig
     pairs: list[PairConfig]
-    peers: PeersConfig
 
 
 def _parse_daemon(raw: dict[str, Any]) -> DaemonConfig:
@@ -91,14 +84,6 @@ def _parse_pair(raw: dict[str, Any], index: int) -> PairConfig:
     )
 
 
-def _parse_peers(raw: dict[str, Any]) -> PeersConfig:
-    discovery = raw.get("discovery", "static")
-    static_list = raw.get("static", [])
-    if not isinstance(static_list, list):
-        raise ConfigError("[peers] static must be an array")
-    return PeersConfig(discovery=discovery, static=list(static_list))
-
-
 def parse_config_from_dict(raw: dict[str, Any]) -> AppConfig:
     """Parse and validate a config dict (same structure as the TOML file). Raises ConfigError."""
     daemon = _parse_daemon(raw.get("daemon", {}))
@@ -106,8 +91,7 @@ def parse_config_from_dict(raw: dict[str, Any]) -> AppConfig:
     if not isinstance(pairs_raw, list):
         raise ConfigError("'pairs' must be an array of tables")
     pairs = [_parse_pair(p, i) for i, p in enumerate(pairs_raw)]
-    peers = _parse_peers(raw.get("peers", {}))
-    return AppConfig(daemon=daemon, pairs=pairs, peers=peers)
+    return AppConfig(daemon=daemon, pairs=pairs)
 
 
 def load_config(path: str = DEFAULT_CONFIG_PATH) -> AppConfig:

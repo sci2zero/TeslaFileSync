@@ -5,7 +5,7 @@ from aiohttp.test_utils import TestClient, TestServer
 import aiohttp.web as web
 
 from syncd.api.routes import build_routes
-from syncd.config import AppConfig, DaemonConfig, PeersConfig, parse_config_from_dict
+from syncd.config import AppConfig, DaemonConfig, parse_config_from_dict
 from syncd.sync.base import ProviderStatus
 
 
@@ -13,7 +13,6 @@ def make_config(pairs=None) -> AppConfig:
     return AppConfig(
         daemon=DaemonConfig(api_socket="/tmp/test.sock", log_level="info"),
         pairs=pairs or [],
-        peers=PeersConfig(discovery="static", static=[]),
     )
 
 
@@ -101,19 +100,11 @@ async def test_config_returns_serialized_config(client):
     data = await resp.json()
     assert "daemon" in data
     assert "pairs" in data
-    assert "peers" in data
 
 
 async def test_config_reload_returns_200(client):
     resp = await client.post("/config/reload")
     assert resp.status == 200
-
-
-async def test_peers_returns_peers_config(client):
-    resp = await client.get("/peers")
-    assert resp.status == 200
-    data = await resp.json()
-    assert "discovery" in data
 
 
 async def test_pairs_returns_list(aiohttp_client):

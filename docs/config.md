@@ -95,21 +95,6 @@ Each node must list the others in its `peers`. For two nodes A and B: A lists B,
 
 ---
 
-## `[peers]`
-
-Global peer discovery settings. Currently only `"static"` discovery is implemented.
-
-```toml
-[peers]
-discovery = "static"   # default: "static"
-
-[[peers.static]]
-id      = "peer-abc123"
-address = "192.168.1.42:5000"
-```
-
----
-
 ## Full example
 
 ```toml
