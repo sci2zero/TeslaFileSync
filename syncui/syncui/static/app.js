@@ -153,7 +153,7 @@ function onModeChange(e, card) {
 }
 
 function renderPairCardHTML(idx, pair) {
-  const modes = ["client-server", "p2p", "external"];
+  const modes = Object.keys(SCHEMAS);
   const dirs  = ["push", "pull", "bidirectional"];
   return `
 <div class="section-card pair-card" data-pair-idx="${idx}">

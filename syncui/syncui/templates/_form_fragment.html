@@ -37,7 +37,7 @@
       {% endcall %}
       {% call field_row("mode", required=true) %}
         <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">
-          {% for m in ["client-server", "p2p", "external"] %}
+          {% for m in schemas %}
           <label>
             <input type="radio" name="pairs.{{ idx }}.mode" value="{{ m }}"{% if m == pair.mode %} checked{% endif %}>
             {{ m }}
@@ -56,7 +56,7 @@
       <div class="section-card">
         <div class="section-header">Provider ({{ pair.mode }})</div>
         <div class="section-body">
-          {{ provider_fields(idx, schemas[pair.mode], pair.provider, pair.mode) }}
+          {{ provider_fields(idx, schemas.get(pair.mode, {}), pair.provider, pair.mode) }}
         </div>
       </div>
     </div>

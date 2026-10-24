@@ -10,42 +10,11 @@ from syncui.daemon_client import DaemonClient, DaemonNotRunningError, DaemonErro
 from syncui.ipc import default_socket_address
 from syncui.tomlio import dict_to_toml, toml_to_dict
 
-# Provider schemas embedded here so the UI works even when the daemon is down.
-_PROVIDER_SCHEMAS: dict[str, dict] = {
-    "client-server": {
-        "required": ["mode", "port"],
-        "properties": {
-            "mode": {"type": "string", "enum": ["server", "client"], "description": "'server' listens; 'client' connects"},
-            "host": {"type": "string", "description": "Bind address (server) or server hostname (client)"},
-            "port": {"type": "integer", "description": "TCP port"},
-            "node_id": {"type": "string", "description": "Human-readable node name"},
-            "conflict_strategy": {"type": "string", "enum": ["last-write-wins", "keep-both"]},
-            "sync_deletes": {"type": "boolean", "description": "Propagate remote deletions. Default true."},
-            "verify_interval": {"type": "integer", "description": "Seconds between integrity verify passes. 0 = disabled."},
-            "verify_sleep": {"type": "number", "description": "Seconds between per-file hashes during verify. Default 0.1."},
-        },
-    },
-    "p2p": {
-        "required": ["peers"],
-        "properties": {
-            "peers": {"type": "array", "items": {"type": "string"}, "description": "Peer addresses as 'host' or 'host:port'"},
-            "port": {"type": "integer", "description": "Explicit listen port"},
-            "node_id": {"type": "string", "description": "Human-readable node name"},
-            "conflict_strategy": {"type": "string", "enum": ["last-write-wins", "keep-both"]},
-            "sync_deletes": {"type": "boolean", "description": "Propagate remote deletions. Default true."},
-            "verify_interval": {"type": "integer", "description": "Seconds between integrity verify passes. 0 = disabled."},
-            "verify_sleep": {"type": "number", "description": "Seconds between per-file hashes during verify. Default 0.1."},
-        },
-    },
-    "external": {
-        "required": ["binary"],
-        "properties": {
-            "binary":  {"type": "string", "description": "Path to the external provider binary"},
-            "peers":   {"type": "array", "items": {"type": "string"}, "description": "Peer addresses as 'host' or 'host:port'"},
-            "node_id": {"type": "string", "description": "Human-readable node name"},
-        },
-    },
-}
+def _provider_schemas() -> dict[str, dict]:
+    try:
+        return _client().get("/providers")
+    except (DaemonNotRunningError, DaemonError):
+        return {}
 
 
 def _socket_address() -> str:
@@ -101,12 +70,13 @@ def index():
     except DaemonError as e:
         daemon_error = str(e)
 
+    schemas = _provider_schemas()
     return render_template(
         "index.html",
         config=config,
         toml=toml_str,
-        schemas=_PROVIDER_SCHEMAS,
-        schemas_json=_json.dumps(_PROVIDER_SCHEMAS),
+        schemas=schemas,
+        schemas_json=_json.dumps(schemas),
         daemon_down=daemon_down,
         daemon_error=daemon_error,
         current_socket=_socket_address(),
@@ -122,7 +92,7 @@ def fragment_form():
     return render_template(
         "_form_fragment.html",
         config=config,
-        schemas=_PROVIDER_SCHEMAS,
+        schemas=_provider_schemas(),
     )
 
 
@@ -204,7 +174,7 @@ def api_convert():
 
 
 def api_schemas():
-    return jsonify(_PROVIDER_SCHEMAS)
+    return jsonify(_provider_schemas())
 
 
 def status_page():
