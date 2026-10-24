@@ -1,5 +1,5 @@
 import logging
-from typing import Type
+from typing import Any, Type
 
 import jsonschema
 
@@ -79,6 +79,10 @@ class SyncManager:
         if pair_id not in self._providers:
             raise PairNotFoundError(pair_id)
         return self._providers[pair_id]
+
+    @staticmethod
+    def schemas() -> dict[str, dict[str, Any]]:
+        return {name: registry.get(name).SCHEMA for name in registry.list_names()}
 
     @staticmethod
     def validate(pairs: list[PairConfig]) -> None:

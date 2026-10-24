@@ -50,6 +50,9 @@ class Daemon:
     def config(self) -> AppConfig:
         return self._config
 
+    def provider_schemas(self) -> dict[str, dict[str, Any]]:
+        return SyncManager.schemas()
+
     async def statuses(self) -> list[ProviderStatus]:
         return await self._manager.all_statuses()
 

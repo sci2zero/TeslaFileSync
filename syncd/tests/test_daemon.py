@@ -83,3 +83,9 @@ async def test_reload_config_invalid_provider_config_logs_error(caplog, tmp_path
         await daemon.reload_config()
     assert "keeping previous config" in caplog.text
     assert daemon._config.pairs == []
+
+
+def test_provider_schemas_lists_builtin_providers():
+    schemas = Daemon(make_config()).provider_schemas()
+    assert set(schemas) == {"p2p", "client-server", "external"}
+    assert schemas["p2p"]["required"] == ["peers"]

@@ -17,6 +17,7 @@ def build_routes() -> list[web.RouteDef]:
         web.post("/config/reload", handle_config_reload),
         web.post("/config/save", handle_config_save),
         web.post("/config/apply", handle_config_apply),
+        web.get("/providers", handle_providers),
         web.get("/pairs", handle_pairs),
         web.post("/pairs/{id}/sync", handle_pair_sync),
         web.post("/pairs/{id}/pause", handle_pair_pause),
@@ -52,6 +53,10 @@ async def handle_status(request: web.Request) -> web.Response:
 
 async def handle_config(request: web.Request) -> web.Response:
     return _json(dataclasses.asdict(_daemon(request).config))
+
+
+async def handle_providers(request: web.Request) -> web.Response:
+    return _json(_daemon(request).provider_schemas())
 
 
 async def handle_config_reload(request: web.Request) -> web.Response:

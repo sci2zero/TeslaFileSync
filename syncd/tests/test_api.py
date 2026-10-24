@@ -23,6 +23,9 @@ class MockDaemon:
         self.shutdown_called = False
         self.reload_called = False
 
+    def provider_schemas(self) -> dict:
+        return {"mock": {"type": "object"}}
+
     async def statuses(self) -> list[ProviderStatus]:
         return list(self._statuses.values())
 
@@ -164,3 +167,9 @@ async def test_shutdown_calls_sigterm_handler(aiohttp_client):
 async def test_config_apply_invalid_config_returns_422(client):
     resp = await client.post("/config/apply", json={"pairs": [{"id": "x"}]})
     assert resp.status == 422
+
+
+async def test_providers_returns_schemas(client):
+    resp = await client.get("/providers")
+    assert resp.status == 200
+    assert await resp.json() == {"mock": {"type": "object"}}

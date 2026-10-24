@@ -34,6 +34,17 @@ class SubprocessProvider(SyncProvider):
     Binary stderr is forwarded to the Python logger at DEBUG level.
     """
 
+    NAME = "external"
+    SCHEMA: dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "binary": {"type": "string", "description": "Path to the external provider binary"},
+        },
+        "required": ["binary"],
+        # Any other fields are passed through to the binary in the start context.
+        "additionalProperties": True,
+    }
+
     _BINARY_KEY: ClassVar[str] = "binary"
 
     def __init__(self) -> None:
