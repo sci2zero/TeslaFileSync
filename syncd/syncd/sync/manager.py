@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any, Type
 
@@ -73,7 +74,16 @@ class SyncManager:
         return await self._get(pair_id).status()
 
     async def all_statuses(self) -> list[ProviderStatus]:
-        return [await p.status() for p in self._providers.values()]
+        return list(await asyncio.gather(
+            *(self._status_or_error(pair_id, p) for pair_id, p in self._providers.items())
+        ))
+
+    @staticmethod
+    async def _status_or_error(pair_id: str, provider: SyncProvider) -> ProviderStatus:
+        try:
+            return await provider.status()
+        except Exception as e:
+            return ProviderStatus(pair_id=pair_id, state="error", last_sync=0.0, error=str(e))
 
     def _get(self, pair_id: str) -> SyncProvider:
         if pair_id not in self._providers:

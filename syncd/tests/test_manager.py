@@ -248,3 +248,30 @@ async def test_apply_restarts_only_changed_pairs():
         assert "added" in manager._providers
     finally:
         mgr_module.registry = original
+
+
+class BrokenStatusProvider(MockProvider):
+    NAME = "broken"
+
+    async def status(self) -> ProviderStatus:
+        raise RuntimeError("provider crashed")
+
+
+async def test_all_statuses_reports_failing_pair_as_error():
+    import syncd.sync.manager as mgr_module
+    original = mgr_module.registry
+    try:
+        reg = ProviderRegistry()
+        reg.register(MockProvider)
+        reg.register(BrokenStatusProvider)
+        mgr_module.registry = reg
+        manager = SyncManager()
+        await manager.start_all([make_pair("ok"), make_pair("bad", mode="broken")])
+
+        statuses = {s.pair_id: s for s in await manager.all_statuses()}
+
+        assert statuses["ok"].state == "idle"
+        assert statuses["bad"].state == "error"
+        assert statuses["bad"].error == "provider crashed"
+    finally:
+        mgr_module.registry = original
