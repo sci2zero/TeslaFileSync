@@ -46,6 +46,7 @@ class SubprocessProvider(SyncProvider):
     }
 
     _BINARY_KEY: ClassVar[str] = "binary"
+    RESPONSE_TIMEOUT: ClassVar[float] = 10.0
 
     def __init__(self) -> None:
         self._proc: asyncio.subprocess.Process | None = None
@@ -60,7 +61,15 @@ class SubprocessProvider(SyncProvider):
             payload = (json.dumps(cmd) + "\n").encode()
             self._proc.stdin.write(payload)
             await self._proc.stdin.drain()
-            line = await self._proc.stdout.readline()
+            try:
+                line = await asyncio.wait_for(self._proc.stdout.readline(), self.RESPONSE_TIMEOUT)
+            except TimeoutError:
+                proc, self._proc = self._proc, None
+                proc.kill()
+                await proc.wait()
+                raise RuntimeError(
+                    f"{self.NAME!r} subprocess did not respond within {self.RESPONSE_TIMEOUT}s"
+                )
             if not line:
                 raise RuntimeError(f"{self.NAME!r} subprocess exited unexpectedly")
             return json.loads(line)
