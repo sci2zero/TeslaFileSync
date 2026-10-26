@@ -9,6 +9,7 @@ import logging
 from asyncio.subprocess import PIPE
 from typing import Any, ClassVar, NoReturn
 
+from syncd.platform.providers import resolve_provider_binary
 from syncd.sync.base import SyncContext, SyncProvider, ProviderStatus
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class SubprocessProvider(SyncProvider):
     SCHEMA: dict[str, Any] = {
         "type": "object",
         "properties": {
-            "binary": {"type": "string", "description": "Path to the external provider binary"},
+            "binary": {"type": "string", "description": "File name of the provider program in the providers directory"},
         },
         "required": ["binary"],
         "additionalProperties": True,
@@ -90,9 +91,8 @@ class SubprocessProvider(SyncProvider):
 
     async def _spawn(self) -> None:
         assert self._context is not None
-        self._proc = await asyncio.create_subprocess_exec(
-            self._context.provider_config[self._BINARY_KEY], stdin=PIPE, stdout=PIPE, stderr=PIPE
-        )
+        binary = resolve_provider_binary(self._context.provider_config[self._BINARY_KEY])
+        self._proc = await asyncio.create_subprocess_exec(binary, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         self._stderr_task = asyncio.create_task(self._drain_stderr(self._proc.stderr))
         resp = await self._send({"cmd": "start", "context": dataclasses.asdict(self._context)})
         if not resp.get("ok"):

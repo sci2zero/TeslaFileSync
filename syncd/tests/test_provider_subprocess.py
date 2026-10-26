@@ -8,10 +8,17 @@ from syncd.sync.providers.subprocess import SubprocessProvider
 
 
 def make_binary(tmp_path, body: str) -> str:
-    script = tmp_path / "provider"
+    directory = tmp_path / "syncd" / "providers"
+    directory.mkdir(parents=True, exist_ok=True)
+    script = directory / "provider"
     script.write_text(f"#!{sys.executable}\nimport json, os, sys, time\n{body}")
     script.chmod(0o755)
-    return str(script)
+    return script.name
+
+
+@pytest.fixture(autouse=True)
+def providers_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
 
 
 def make_context(binary: str) -> SyncContext:
@@ -68,7 +75,7 @@ async def test_crashed_binary_is_restarted_and_stays_paused(tmp_path, monkeypatc
             break
         await asyncio.sleep(0.05)
     assert (await provider.status()).state == "idle"
-    commands = (tmp_path / "commands").read_text().split()
+    commands = (tmp_path / "syncd" / "providers" / "commands").read_text().split()
     assert commands[:3] == ["start", "pause", "status"]
     assert commands[3:5] == ["start", "pause"]
     await provider.stop()

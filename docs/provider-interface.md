@@ -24,6 +24,32 @@ syncd (Python daemon)
 
 ---
 
+## Installing a provider
+
+`syncd` only runs provider programs from the per-user providers directory:
+
+| Platform | Directory |
+|----------|-----------|
+| Linux / macOS | `$XDG_DATA_HOME/syncd/providers/` (default `~/.local/share/syncd/providers/`) |
+| Windows | `%LOCALAPPDATA%\syncd\providers\` |
+
+The pair config names the program by file name only:
+
+```toml
+[[pairs]]
+id = "photos"
+mode = "external"
+local = "~/Pictures"
+direction = "bidirectional"
+
+[pairs.provider]
+binary = "my-provider"
+```
+
+Paths (`/usr/bin/x`, `../x`) are rejected. On Linux and macOS the directory and the program must be owned by the current user and not writable by group or others, otherwise the pair is not started.
+
+---
+
 ## IPC Protocol
 
 ### Request format
