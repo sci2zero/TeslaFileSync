@@ -3,7 +3,7 @@ import logging
 import aiohttp.web as web
 
 from syncd.api.control import DaemonControl
-from syncd.api.routes import build_routes
+from syncd.api.routes import build_routes, require_json
 from syncd.platform.ipc import is_unix_socket_address, make_site
 from syncd.utils.fs import remove_socket
 
@@ -16,7 +16,7 @@ class ApiServer:
         self._runner: web.AppRunner | None = None
 
     async def start(self, daemon: DaemonControl) -> None:
-        app = web.Application()
+        app = web.Application(middlewares=[require_json])
         app["daemon"] = daemon
         app.add_routes(build_routes())
 

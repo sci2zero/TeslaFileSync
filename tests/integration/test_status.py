@@ -33,18 +33,18 @@ def test_pairs_returns_empty_list(http_client):
 
 
 def test_config_reload_returns_200(http_client):
-    resp = http_client.post("/config/reload")
+    resp = http_client.post("/config/reload", json={})
     assert resp.status_code == 200
 
 
 def test_unknown_pair_sync_returns_404(http_client):
-    resp = http_client.post("/pairs/nonexistent/sync")
+    resp = http_client.post("/pairs/nonexistent/sync", json={})
     assert resp.status_code == 404
     assert "error" in resp.json()
 
 
 def test_unknown_pair_pause_returns_404(http_client):
-    resp = http_client.post("/pairs/nonexistent/pause")
+    resp = http_client.post("/pairs/nonexistent/pause", json={})
     assert resp.status_code == 404
 
 
@@ -52,7 +52,7 @@ def test_shutdown_stops_daemon(http_client, daemon_socket):
     import os
     import time
 
-    resp = http_client.post("/shutdown")
+    resp = http_client.post("/shutdown", json={})
     assert resp.status_code == 200
 
     # socket should disappear as daemon shuts down

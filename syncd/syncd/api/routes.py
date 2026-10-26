@@ -38,6 +38,13 @@ def _error(message: str, status: int) -> web.Response:
     return _json({"error": message}, status=status)
 
 
+@web.middleware
+async def require_json(request: web.Request, handler: Any) -> web.StreamResponse:
+    if request.method == "POST" and request.content_type != "application/json":
+        return _error("Content-Type must be application/json", status=415)
+    return await handler(request)
+
+
 def _daemon(request: web.Request) -> DaemonControl:
     return request.app["daemon"]
 

@@ -4,7 +4,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 import aiohttp.web as web
 
-from syncd.api.routes import build_routes
+from syncd.api.routes import build_routes, require_json
 from syncd.config import AppConfig, DaemonConfig, parse_config_from_dict
 from syncd.sync.base import ProviderStatus
 
@@ -61,7 +61,7 @@ class _NotFoundError(Exception):
 
 
 def make_app(daemon=None) -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[require_json])
     app["daemon"] = daemon or MockDaemon()
     app.add_routes(build_routes())
     return app
@@ -106,7 +106,7 @@ async def test_config_returns_serialized_config(client):
 
 
 async def test_config_reload_returns_200(client):
-    resp = await client.post("/config/reload")
+    resp = await client.post("/config/reload", json={})
     assert resp.status == 200
 
 
@@ -126,7 +126,7 @@ async def test_pairs_returns_list(aiohttp_client):
 async def test_pair_sync_unknown_returns_404(aiohttp_client):
     app = make_app()
     client = await aiohttp_client(app)
-    resp = await client.post("/pairs/nonexistent/sync")
+    resp = await client.post("/pairs/nonexistent/sync", json={})
     assert resp.status == 404
     data = await resp.json()
     assert "error" in data
@@ -135,14 +135,14 @@ async def test_pair_sync_unknown_returns_404(aiohttp_client):
 async def test_pair_pause_unknown_returns_404(aiohttp_client):
     app = make_app()
     client = await aiohttp_client(app)
-    resp = await client.post("/pairs/nonexistent/pause")
+    resp = await client.post("/pairs/nonexistent/pause", json={})
     assert resp.status == 404
 
 
 async def test_pair_resume_unknown_returns_404(aiohttp_client):
     app = make_app()
     client = await aiohttp_client(app)
-    resp = await client.post("/pairs/nonexistent/resume")
+    resp = await client.post("/pairs/nonexistent/resume", json={})
     assert resp.status == 404
 
 
@@ -150,7 +150,7 @@ async def test_pair_sync_known_returns_200(aiohttp_client):
     status = ProviderStatus(pair_id="p1", state="idle", last_sync=0.0, error="")
     app = make_app(MockDaemon(statuses={"p1": status}))
     client = await aiohttp_client(app)
-    resp = await client.post("/pairs/p1/sync")
+    resp = await client.post("/pairs/p1/sync", json={})
     assert resp.status == 200
 
 
@@ -158,7 +158,7 @@ async def test_shutdown_calls_sigterm_handler(aiohttp_client):
     daemon = MockDaemon()
     app = make_app(daemon)
     client = await aiohttp_client(app)
-    resp = await client.post("/shutdown")
+    resp = await client.post("/shutdown", json={})
     assert resp.status == 200
     assert daemon.shutdown_called
 
@@ -173,3 +173,9 @@ async def test_providers_returns_schemas(client):
     resp = await client.get("/providers")
     assert resp.status == 200
     assert await resp.json() == {"mock": {"type": "object"}}
+
+
+async def test_post_without_json_content_type_is_rejected(client, daemon):
+    resp = await client.post("/shutdown", data="{}", headers={"Content-Type": "text/plain"})
+    assert resp.status == 415
+    assert not daemon.shutdown_called
