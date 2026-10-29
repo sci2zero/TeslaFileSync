@@ -12,12 +12,14 @@ Override with `syncd -c /path/to/config.toml`.
 [daemon]
 api_socket = "/run/user/1000/syncd.sock"
 log_level  = "info"
+node_id    = "laptop"
 ```
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | `api_socket` | Linux/macOS: `/run/user/<uid>/syncd.sock`<br>Windows: `127.0.0.1:24017` | Address of the management API used by `synctl` and `syncui`. A value starting with `/` is a Unix socket path, anything else is `host:port` over TCP. Cannot be changed while the daemon is running. |
 | `log_level` | `info` | `debug`, `info`, `warning`, `error` or `critical` |
+| `node_id` | generated | Name of this node, the same for all pairs. If omitted, a random id is generated on first start and kept in `$XDG_DATA_HOME/syncd/node_id` (default `~/.local/share/syncd/node_id`; Windows: `%LOCALAPPDATA%\syncd\node_id`). Every provider receives it. Cannot be changed while the daemon is running. |
 
 ---
 
@@ -30,7 +32,6 @@ Repeat this block for each directory you want to sync. Each pair runs its own pr
 id        = "work-docs"
 mode      = "client-server"
 local     = "~/Documents/Work"
-node_id   = "laptop"
 interval  = 300
 exclude   = ["*.log", "*.pdf", "build/*"]
 
@@ -43,11 +44,10 @@ exclude   = ["*.log", "*.pdf", "build/*"]
 | `id` | yes | Unique name of the pair, used in `synctl sync trigger <id>`. Two pairs with the same id are rejected. |
 | `mode` | yes | Provider: `client-server`, `p2p` or `external` |
 | `local` | yes | Local directory to sync. `~` is expanded. |
-| `node_id` | no | Name of this node in the pair. If omitted, a random id is generated on first start and kept in `.synak/node_id` inside the pair directory. Every provider receives it, so it stays the same if the pair switches provider. |
 | `interval` | no | Seconds between sync cycles with other nodes. `0` (default) means the provider default of 30 s. Local changes are always watched; the interval only controls how often they are exchanged. |
 | `exclude` | no | fnmatch patterns to skip, matched against the file name and the relative path. Added to the built-in excludes (`*.swp`, `*-swp`, `*.swpx`, `*.swn`, `.DS_Store`, `Thumbs.db`, `*.tmp`, `*.temp`, `*~`). |
 
-`[pairs.provider]` is validated against the schema of the chosen provider before the pair is started. Older configs that set `node_id` inside `[pairs.provider]` still work; it is treated as the pair `node_id`.
+`[pairs.provider]` is validated against the schema of the chosen provider before the pair is started.
 
 ---
 
@@ -117,13 +117,13 @@ Any other fields are passed to the program unchanged. See [provider-interface.md
 [daemon]
 api_socket = "/run/user/1000/syncd.sock"
 log_level  = "info"
+node_id    = "laptop"
 
 # Client-server pair — this node is the client
 [[pairs]]
 id        = "work-docs"
 mode      = "client-server"
 local     = "~/Documents/Work"
-node_id   = "laptop"
 interval  = 60
 
 [pairs.provider]
@@ -138,7 +138,6 @@ sync_deletes      = false
 id        = "photos"
 mode      = "p2p"
 local     = "~/Pictures"
-node_id   = "laptop"
 interval  = 30
 
 [pairs.provider]

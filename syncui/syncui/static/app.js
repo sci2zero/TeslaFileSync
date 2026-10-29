@@ -163,7 +163,6 @@ function renderPairCardHTML(idx, pair) {
   <div class="section-body">
     ${fieldRowHTML("id", true, `<input type="text" name="pairs.${idx}.id" value="${esc(pair.id)}">`)}
     ${fieldRowHTML("local", true, `<input type="text" name="pairs.${idx}.local" value="${esc(pair.local)}">`)}
-    ${fieldRowHTML("node_id", false, `<input type="text" name="pairs.${idx}.node_id" value="${esc(pair.node_id || "")}">`, "Name of this node. Empty = generated once and kept.")}
     ${fieldRowHTML("mode", true, `
       <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">
         ${modes.map(m => `<label><input type="radio" name="pairs.${idx}.mode" value="${m}"${m === pair.mode ? " checked" : ""}> ${m}</label>`).join("")}
@@ -207,6 +206,7 @@ function collectFriendly() {
   const cfg = {
     daemon: {
       api_socket: document.querySelector('[name="daemon.api_socket"]')?.value || "",
+      node_id:    document.querySelector('[name="daemon.node_id"]')?.value || "",
       log_level:  val("daemon.log_level"),
     },
     pairs: [],
@@ -221,7 +221,6 @@ function collectFriendly() {
       id:        val(p("id"), card),
       mode,
       local:     val(p("local"), card),
-      node_id:   val(p("node_id"), card),
       interval:  intVal(p("interval"), card) ?? 0,
       exclude:   collectArray(p("exclude"), card),
       provider:  collectProvider(card, idx, mode),

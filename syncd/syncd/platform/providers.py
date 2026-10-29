@@ -4,15 +4,13 @@ import os
 import stat
 import sys
 
+from syncd.platform.paths import data_dir
+
 _IS_WINDOWS = sys.platform == "win32"
 
 
 def providers_dir() -> str:
-    if _IS_WINDOWS:
-        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local")
-    else:
-        base = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-    return os.path.join(base, "syncd", "providers")
+    return os.path.join(data_dir(), "providers")
 
 
 def resolve_provider_binary(name: str) -> str:

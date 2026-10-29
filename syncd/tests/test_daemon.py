@@ -1,10 +1,17 @@
 import asyncio
+import dataclasses
 import signal
 import pytest
 
 import syncd.sync.providers  # noqa: F401 — registers built-in providers
 from syncd.config import AppConfig, ConfigError, DaemonConfig
 from syncd.daemon import Daemon
+
+
+@pytest.fixture(autouse=True)
+def data_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    return tmp_path
 
 
 def make_config() -> AppConfig:
@@ -89,3 +96,26 @@ def test_provider_schemas_lists_builtin_providers():
     schemas = Daemon(make_config()).provider_schemas()
     assert set(schemas) == {"p2p", "client-server", "external"}
     assert schemas["p2p"]["required"] == ["peers"]
+
+
+async def test_startup_generates_node_id_once(data_home):
+    first = Daemon(make_config())
+    await first._startup()
+    await first._shutdown()
+
+    second = Daemon(make_config())
+    await second._startup()
+    await second._shutdown()
+
+    assert first._manager.node_id
+    assert second._manager.node_id == first._manager.node_id
+    assert (data_home / "syncd" / "node_id").read_text().strip() == first._manager.node_id
+
+
+async def test_startup_uses_configured_node_id(data_home):
+    config = make_config()
+    daemon = Daemon(dataclasses.replace(config, daemon=dataclasses.replace(config.daemon, node_id="laptop")))
+    await daemon._startup()
+    await daemon._shutdown()
+    assert daemon._manager.node_id == "laptop"
+    assert not (data_home / "syncd" / "node_id").exists()

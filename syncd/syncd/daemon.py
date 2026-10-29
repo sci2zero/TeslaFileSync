@@ -6,6 +6,7 @@ from typing import Any
 from syncd.config import AppConfig, ConfigError, load_config, parse_config_from_dict, save_config
 from syncd.platform.signals import register_signal_handlers
 from syncd.sync.base import ProviderStatus
+from syncd.sync.identity import load_or_create_node_id
 from syncd.sync.manager import ProviderConfigError, SyncManager
 from syncd.api.server import ApiServer
 
@@ -36,6 +37,7 @@ class Daemon:
     async def _startup(self) -> None:
         import syncd.sync.providers  # noqa: F401 — triggers provider auto-registration
 
+        self._manager.node_id = self._config.daemon.node_id or await asyncio.to_thread(load_or_create_node_id)
         await self._manager.start_all(self._config.pairs)
 
         self._api = ApiServer(self._config.daemon.api_socket)
@@ -77,11 +79,15 @@ class Daemon:
         await self._apply(parse_config_from_dict(raw))
 
     async def _apply(self, new_config: AppConfig) -> None:
-        """Apply a new config in memory. api_socket is preserved — it cannot change at runtime."""
+        """Apply a new config in memory. api_socket and node_id are preserved — they cannot change at runtime."""
         # Preserve the running socket address; the UI cannot move the socket while connected.
         new_config = dataclasses.replace(
             new_config,
-            daemon=dataclasses.replace(new_config.daemon, api_socket=self._config.daemon.api_socket),
+            daemon=dataclasses.replace(
+                new_config.daemon,
+                api_socket=self._config.daemon.api_socket,
+                node_id=self._config.daemon.node_id,
+            ),
         )
         old_log_level = self._config.daemon.log_level
 

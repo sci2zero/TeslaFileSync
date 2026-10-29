@@ -29,6 +29,7 @@ def daemon_socket(tmp_path_factory):
         [sys.executable, "-m", "syncd.main", "-c", str(config_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env={**os.environ, "XDG_DATA_HOME": str(config_dir)},
     )
 
     if not _wait_for_socket(socket_path):

@@ -181,7 +181,7 @@ The `context` object passed in `start` has these fields:
 | `interval` | int | Seconds between sync rounds. `0` means the provider's default |
 | `provider_config` | object | Raw provider config from the TOML file, validated against the provider's SCHEMA |
 | `exclude` | []string | Extra glob patterns to exclude from indexing (on top of the built-in defaults) |
-| `node_id` | string | Identifier of this node in the pair. Stable across restarts: taken from the config or generated once by `syncd` and kept in `.synak/node_id`. Use it as this node's key in vector clocks. |
+| `node_id` | string | Identifier of this node, the same for all pairs and stable across restarts: taken from `[daemon] node_id` or generated once by `syncd`. Use it as this node's key in vector clocks. |
 
 `provider_config` contains whatever fields you declare in your Python wrapper's `SCHEMA`. It is passed through verbatim — validate or default your own fields from it.
 

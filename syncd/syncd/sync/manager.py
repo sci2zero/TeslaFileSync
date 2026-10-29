@@ -6,7 +6,6 @@ import jsonschema
 
 from syncd.config import PairConfig
 from syncd.sync.base import SyncContext, SyncProvider, ProviderStatus
-from syncd.sync.identity import load_or_create_node_id
 from syncd.sync.providers.subprocess import SubprocessProvider
 from syncd.sync.registry import registry, UnknownProviderError
 
@@ -32,7 +31,8 @@ def _validate_schema(pair: PairConfig, provider_cls: Type[SyncProvider]) -> None
 
 
 class SyncManager:
-    def __init__(self) -> None:
+    def __init__(self, node_id: str = "") -> None:
+        self.node_id = node_id
         self._providers: dict[str, SyncProvider] = {}
         self._configs: dict[str, PairConfig] = {}
 
@@ -128,7 +128,7 @@ class SyncManager:
             interval=pair.interval,
             provider_config=pair.provider,
             exclude=list(pair.exclude),
-            node_id=pair.node_id or await asyncio.to_thread(load_or_create_node_id, pair.local),
+            node_id=self.node_id,
         )
         provider = provider_cls()
         try:

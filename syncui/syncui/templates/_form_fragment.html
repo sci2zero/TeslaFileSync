@@ -7,6 +7,9 @@
     {% call field_row("api_socket", desc="Cannot change at runtime.") %}
       {{ text_input("daemon.api_socket", config.daemon.api_socket, readonly=true) }}
     {% endcall %}
+    {% call field_row("node_id", desc="Set in the config file. Empty = generated once and kept. Cannot change at runtime.") %}
+      {{ text_input("daemon.node_id", config.daemon.node_id, readonly=true, placeholder="generated") }}
+    {% endcall %}
     {% call field_row("log_level") %}
       {{ select_field("daemon.log_level", ["debug","info","warning","error","critical"], config.daemon.log_level) }}
     {% endcall %}
@@ -31,9 +34,6 @@
       {% endcall %}
       {% call field_row("local", required=true) %}
         {{ text_input("pairs." ~ idx ~ ".local", pair.local) }}
-      {% endcall %}
-      {% call field_row("node_id", desc="Name of this node. Empty = generated once and kept.") %}
-        {{ text_input("pairs." ~ idx ~ ".node_id", pair.node_id) }}
       {% endcall %}
       {% call field_row("mode", required=true) %}
         <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">

@@ -21,6 +21,7 @@ class ConfigError(Exception):
 class DaemonConfig:
     api_socket: str
     log_level: str
+    node_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -31,7 +32,6 @@ class PairConfig:
     interval: int
     provider: dict[str, Any]
     exclude: tuple[str, ...] = ()
-    node_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,10 @@ def _parse_daemon(raw: dict[str, Any]) -> DaemonConfig:
         raise ConfigError(
             f"[daemon] log_level must be one of {sorted(_VALID_LOG_LEVELS)}, got {log_level!r}"
         )
-    return DaemonConfig(api_socket=socket, log_level=log_level)
+    node_id = raw.get("node_id", "")
+    if not isinstance(node_id, str):
+        raise ConfigError("[daemon] node_id must be a string")
+    return DaemonConfig(api_socket=socket, log_level=log_level, node_id=node_id)
 
 
 def _parse_pair(raw: dict[str, Any], index: int) -> PairConfig:
@@ -62,10 +65,6 @@ def _parse_pair(raw: dict[str, Any], index: int) -> PairConfig:
         raise ConfigError(f"{ctx}: interval must be a non-negative integer")
 
     provider = dict(raw.get("provider", {}))
-    legacy_node_id = provider.pop("node_id", "")
-    node_id = raw.get("node_id") or legacy_node_id
-    if not isinstance(node_id, str):
-        raise ConfigError(f"{ctx}: node_id must be a string")
     exclude_raw = raw.get("exclude", [])
     if not isinstance(exclude_raw, list) or not all(isinstance(e, str) for e in exclude_raw):
         raise ConfigError(f"{ctx}: exclude must be an array of strings")
@@ -77,7 +76,6 @@ def _parse_pair(raw: dict[str, Any], index: int) -> PairConfig:
         interval=interval,
         provider=provider,
         exclude=tuple(exclude_raw),
-        node_id=node_id,
     )
 
 
