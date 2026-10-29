@@ -12,7 +12,6 @@ def make_pair(
     id="p1",
     mode="mock",
     local="/tmp/x",
-    direction="push",
     interval=0,
     provider=None,
 ) -> PairConfig:
@@ -20,7 +19,6 @@ def make_pair(
         id=id,
         mode=mode,
         local=local,
-        direction=direction,
         interval=interval,
         provider=provider or {},
     )

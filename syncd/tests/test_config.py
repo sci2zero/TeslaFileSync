@@ -24,7 +24,6 @@ def test_minimal_config(tmp_path):
 id = "photos"
 mode = "p2p"
 local = "/tmp/photos"
-direction = "push"
 """)
     cfg = load_config(path)
     assert isinstance(cfg, AppConfig)
@@ -32,7 +31,6 @@ direction = "push"
     assert cfg.pairs[0].id == "photos"
     assert cfg.pairs[0].mode == "p2p"
     assert cfg.pairs[0].local == "/tmp/photos"
-    assert cfg.pairs[0].direction == "push"
     assert cfg.pairs[0].interval == 0
 
 
@@ -60,7 +58,6 @@ def test_local_path_expanded(tmp_path):
 id = "docs"
 mode = "client-server"
 local = "~/Documents"
-direction = "pull"
 """)
     cfg = load_config(path)
     assert not cfg.pairs[0].local.startswith("~")
@@ -73,7 +70,6 @@ def test_provider_config_passed_through(tmp_path):
 id = "work"
 mode = "client-server"
 local = "/tmp/work"
-direction = "bidirectional"
 
 [pairs.provider]
 remote = "user@host:/work"
@@ -88,13 +84,11 @@ def test_multiple_pairs(tmp_path):
 id = "a"
 mode = "p2p"
 local = "/tmp/a"
-direction = "push"
 
 [[pairs]]
 id = "b"
 mode = "client-server"
 local = "/tmp/b"
-direction = "pull"
 """)
     cfg = load_config(path)
     assert len(cfg.pairs) == 2
@@ -107,7 +101,6 @@ def test_missing_id_raises(tmp_path):
 [[pairs]]
 mode = "p2p"
 local = "/tmp/x"
-direction = "push"
 """)
     with pytest.raises(ConfigError, match="id"):
         load_config(path)
@@ -118,7 +111,6 @@ def test_missing_mode_raises(tmp_path):
 [[pairs]]
 id = "x"
 local = "/tmp/x"
-direction = "push"
 """)
     with pytest.raises(ConfigError, match="mode"):
         load_config(path)
@@ -129,32 +121,8 @@ def test_missing_local_raises(tmp_path):
 [[pairs]]
 id = "x"
 mode = "p2p"
-direction = "push"
 """)
     with pytest.raises(ConfigError, match="local"):
-        load_config(path)
-
-
-def test_missing_direction_raises(tmp_path):
-    path = write_toml(tmp_path, """
-[[pairs]]
-id = "x"
-mode = "p2p"
-local = "/tmp/x"
-""")
-    with pytest.raises(ConfigError, match="direction"):
-        load_config(path)
-
-
-def test_invalid_direction_raises(tmp_path):
-    path = write_toml(tmp_path, """
-[[pairs]]
-id = "x"
-mode = "p2p"
-local = "/tmp/x"
-direction = "sideways"
-""")
-    with pytest.raises(ConfigError, match="direction"):
         load_config(path)
 
 
@@ -186,7 +154,6 @@ def test_interval_default_zero(tmp_path):
 id = "x"
 mode = "p2p"
 local = "/tmp/x"
-direction = "push"
 """)
     cfg = load_config(path)
     assert cfg.pairs[0].interval == 0
@@ -198,7 +165,6 @@ def test_interval_explicit(tmp_path):
 id = "x"
 mode = "p2p"
 local = "/tmp/x"
-direction = "push"
 interval = 300
 """)
     cfg = load_config(path)
@@ -211,7 +177,6 @@ def test_save_config_round_trips(tmp_path):
 id = "photos"
 mode = "p2p"
 local = "/tmp/photos"
-direction = "push"
 exclude = ["*.tmp"]
 
 [pairs.provider]

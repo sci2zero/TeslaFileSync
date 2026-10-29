@@ -30,7 +30,6 @@ Repeat this block for each directory you want to sync. Each pair runs its own pr
 id        = "work-docs"       # required, unique
 mode      = "client-server"   # required: "client-server" or "p2p"
 local     = "~/Documents/Work" # required, ~ is expanded
-direction = "bidirectional"   # required: "push", "pull", or "bidirectional"
 interval  = 300               # seconds between syncs; 0 = watch-based (default: 0)
 exclude   = ["*.log", "*.pdf", "build/*"]  # optional, fnmatch patterns
 
@@ -43,7 +42,6 @@ exclude   = ["*.log", "*.pdf", "build/*"]  # optional, fnmatch patterns
 | `id` | yes | Unique name used in `synctl sync trigger <id>` |
 | `mode` | yes | Which provider to use |
 | `local` | yes | Local directory to sync |
-| `direction` | yes | `push` — send only; `pull` — receive only; `bidirectional` — both |
 | `interval` | no | Seconds between sync cycles. `0` uses filesystem watching (client-server only) |
 | `exclude` | no | List of fnmatch patterns to skip. Applied to filename and relative path. Stacks on top of built-in defaults. |
 
@@ -107,7 +105,6 @@ log_level  = "info"
 id        = "work-docs"
 mode      = "client-server"
 local     = "~/Documents/Work"
-direction = "bidirectional"
 interval  = 60
 
 [pairs.provider]
@@ -122,7 +119,6 @@ sync_deletes      = false
 id        = "photos"
 mode      = "p2p"
 local     = "~/Pictures"
-direction = "bidirectional"
 interval  = 30
 
 [pairs.provider]

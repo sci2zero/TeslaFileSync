@@ -113,7 +113,7 @@ async def test_config_reload_returns_200(client):
 async def test_pairs_returns_list(aiohttp_client):
     from syncd.config import PairConfig
     pair = PairConfig(id="x", mode="p2p", local="/tmp/x",
-                      direction="push", interval=0, provider={})
+                      interval=0, provider={})
     app = make_app(MockDaemon(config=make_config(pairs=[pair])))
     client = await aiohttp_client(app)
     resp = await client.get("/pairs")

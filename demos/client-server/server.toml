@@ -6,7 +6,6 @@ log_level  = "debug"
 id        = "demo"
 mode      = "client-server"
 local     = "~/sync-demo"
-direction = "bidirectional"
 interval  = 10
 
 [pairs.provider]

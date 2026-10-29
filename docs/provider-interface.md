@@ -40,7 +40,6 @@ The pair config names the program by file name only:
 id = "photos"
 mode = "external"
 local = "~/Pictures"
-direction = "bidirectional"
 
 [pairs.provider]
 binary = "my-provider"
@@ -82,7 +81,6 @@ Sent once, before any other command. The binary must initialise itself and begin
   "context": {
     "pair_id":        "my-pair",
     "local":          "/home/user/sync-dir",
-    "direction":      "bidirectional",
     "interval":       30,
     "provider_config": { ... },
     "exclude":        []
@@ -179,7 +177,6 @@ The `context` object passed in `start` has these fields:
 |-------|------|-------------|
 | `pair_id` | string | Stable identifier for this sync pair |
 | `local` | string | Absolute path of the local watch directory (after `~/` expansion: do it yourself) |
-| `direction` | string | `"push"`, `"pull"`, or `"bidirectional"` |
 | `interval` | int | Seconds between sync rounds. `0` means file-watch-triggered only |
 | `provider_config` | object | Raw provider config from the TOML file, validated against the provider's SCHEMA |
 | `exclude` | []string | Extra glob patterns to exclude from indexing (on top of the built-in defaults) |
@@ -419,7 +416,6 @@ No Python file is needed. Any binary with a `binary` key in its config is auto-d
 id        = "work-docs"
 mode      = "my-provider"
 local     = "~/Documents/Work"
-direction = "bidirectional"
 interval  = 60
 
 [pairs.provider]

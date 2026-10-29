@@ -124,7 +124,6 @@ class SyncManager:
         context = SyncContext(
             pair_id=pair.id,
             local=pair.local,
-            direction=pair.direction,
             interval=pair.interval,
             provider_config=pair.provider,
             exclude=list(pair.exclude),

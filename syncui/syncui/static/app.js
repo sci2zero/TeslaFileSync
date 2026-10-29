@@ -154,7 +154,6 @@ function onModeChange(e, card) {
 
 function renderPairCardHTML(idx, pair) {
   const modes = Object.keys(SCHEMAS);
-  const dirs  = ["push", "pull", "bidirectional"];
   return `
 <div class="section-card pair-card" data-pair-idx="${idx}">
   <div class="section-header">
@@ -164,7 +163,6 @@ function renderPairCardHTML(idx, pair) {
   <div class="section-body">
     ${fieldRowHTML("id", true, `<input type="text" name="pairs.${idx}.id" value="${esc(pair.id)}">`)}
     ${fieldRowHTML("local", true, `<input type="text" name="pairs.${idx}.local" value="${esc(pair.local)}">`)}
-    ${fieldRowHTML("direction", true, radioGroupHTML(`pairs.${idx}.direction`, dirs, pair.direction))}
     ${fieldRowHTML("mode", true, `
       <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">
         ${modes.map(m => `<label><input type="radio" name="pairs.${idx}.mode" value="${m}"${m === pair.mode ? " checked" : ""}> ${m}</label>`).join("")}
@@ -222,7 +220,6 @@ function collectFriendly() {
       id:        val(p("id"), card),
       mode,
       local:     val(p("local"), card),
-      direction: checkedRadio(p("direction"), card) || "bidirectional",
       interval:  intVal(p("interval"), card) ?? 0,
       exclude:   collectArray(p("exclude"), card),
       provider:  collectProvider(card, idx, mode),
@@ -264,12 +261,6 @@ function fieldRowHTML(label, required, widgetHTML, desc) {
 </div>`;
 }
 
-function radioGroupHTML(name, options, selected) {
-  return `<div class="radio-group">` +
-    options.map(o => `<label><input type="radio" name="${name}" value="${o}"${o === selected ? " checked" : ""}> ${o}</label>`).join("") +
-    `</div>`;
-}
-
 function selectHTML(name, options, selected) {
   return `<select name="${name}">` +
     options.map(o => `<option value="${o}"${o === selected ? " selected" : ""}>${o}</option>`).join("") +
@@ -290,7 +281,7 @@ function addArrayRow(btn, name) {
 }
 
 function defaultPair() {
-  return { id: "", mode: "client-server", local: "", direction: "bidirectional", interval: 0, exclude: [], provider: {} };
+  return { id: "", mode: "client-server", local: "", interval: 0, exclude: [], provider: {} };
 }
 
 function esc(s) {

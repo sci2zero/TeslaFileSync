@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 class SyncContext:
     pair_id: str
     local: str
-    direction: str
     interval: int
     provider_config: dict[str, Any]
     exclude: list[str] = field(default_factory=list)

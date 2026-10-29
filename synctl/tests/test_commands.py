@@ -16,7 +16,7 @@ STATUS_RESPONSE = {
 }
 
 PAIRS_RESPONSE = [
-    {"id": "photos", "mode": "p2p", "direction": "push",
+    {"id": "photos", "mode": "p2p",
      "status": {"state": "idle", "error": ""}},
 ]
 

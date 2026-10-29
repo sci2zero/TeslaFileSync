@@ -62,7 +62,7 @@ async def test_startup_and_shutdown_stubs_do_not_raise():
 
 
 # The built-in p2p provider's schema requires "peers".
-INVALID_P2P_PAIR = {"id": "p", "mode": "p2p", "local": "/tmp/x", "direction": "bidirectional"}
+INVALID_P2P_PAIR = {"id": "p", "mode": "p2p", "local": "/tmp/x"}
 
 
 async def test_apply_config_invalid_provider_config_keeps_running_pairs():
@@ -77,7 +77,7 @@ async def test_apply_config_invalid_provider_config_keeps_running_pairs():
 async def test_reload_config_invalid_provider_config_logs_error(caplog, tmp_path):
     import logging
     config_file = tmp_path / "config.toml"
-    config_file.write_text('[[pairs]]\nid = "p"\nmode = "p2p"\nlocal = "/tmp/x"\ndirection = "bidirectional"\n')
+    config_file.write_text('[[pairs]]\nid = "p"\nmode = "p2p"\nlocal = "/tmp/x"\n')
     daemon = Daemon(make_config(), config_path=str(config_file))
     with caplog.at_level(logging.ERROR, logger="syncd.daemon"):
         await daemon.reload_config()

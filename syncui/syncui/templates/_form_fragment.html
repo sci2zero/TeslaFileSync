@@ -1,4 +1,4 @@
-{% from "_macros.html" import field_row, select_field, radio_group, text_input, number_input, array_field, provider_fields with context %}
+{% from "_macros.html" import field_row, select_field, text_input, number_input, array_field, provider_fields with context %}
 
 {# — Daemon — #}
 <div class="section-card">
@@ -31,9 +31,6 @@
       {% endcall %}
       {% call field_row("local", required=true) %}
         {{ text_input("pairs." ~ idx ~ ".local", pair.local) }}
-      {% endcall %}
-      {% call field_row("direction", required=true) %}
-        {{ radio_group("pairs." ~ idx ~ ".direction", ["push","pull","bidirectional"], pair.direction) }}
       {% endcall %}
       {% call field_row("mode", required=true) %}
         <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">

@@ -12,7 +12,6 @@ def make_context(tmp_path, mode="client", port=0, interval=60) -> SyncContext:
     return SyncContext(
         pair_id="test-pair",
         local=str(tmp_path),
-        direction="bidirectional",
         interval=interval,
         provider_config={
             "mode": mode,
@@ -42,7 +41,6 @@ async def test_server_start_creates_server_and_task(tmp_path):
     ctx = SyncContext(
         pair_id="test",
         local=str(tmp_path),
-        direction="bidirectional",
         interval=60,
         provider_config={"mode": "server", "host": "127.0.0.1", "port": 0},
     )
@@ -122,7 +120,6 @@ async def test_client_pulls_file_from_server(tmp_path):
     srv_ctx = SyncContext(
         pair_id="srv",
         local=str(server_dir),
-        direction="bidirectional",
         interval=9999,
         provider_config={"mode": "server", "host": "127.0.0.1", "port": 0},
     )
@@ -135,7 +132,6 @@ async def test_client_pulls_file_from_server(tmp_path):
     cli_ctx = SyncContext(
         pair_id="cli",
         local=str(client_dir),
-        direction="bidirectional",
         interval=9999,
         provider_config={"mode": "client", "host": "127.0.0.1", "port": bound_port},
     )
@@ -164,7 +160,6 @@ async def test_client_pushes_file_to_server(tmp_path):
     srv_ctx = SyncContext(
         pair_id="srv",
         local=str(server_dir),
-        direction="bidirectional",
         interval=9999,
         provider_config={"mode": "server", "host": "127.0.0.1", "port": 0},
     )
@@ -175,7 +170,6 @@ async def test_client_pushes_file_to_server(tmp_path):
     cli_ctx = SyncContext(
         pair_id="cli",
         local=str(client_dir),
-        direction="bidirectional",
         interval=9999,
         provider_config={"mode": "client", "host": "127.0.0.1", "port": bound_port},
     )
@@ -195,7 +189,6 @@ async def test_connection_refused_sets_error_state(tmp_path):
     ctx = SyncContext(
         pair_id="cli",
         local=str(tmp_path),
-        direction="bidirectional",
         interval=9999,
         provider_config={"mode": "client", "host": "127.0.0.1", "port": 19999},
     )
@@ -222,7 +215,7 @@ async def test_client_errors_when_remote_uses_different_provider(tmp_path, caplo
 
     peer = P2PProvider()
     await peer.start(SyncContext(
-        pair_id="mismatch", local=str(tmp_path / "p2p"), direction="bidirectional",
+        pair_id="mismatch", local=str(tmp_path / "p2p"),
         interval=3600, provider_config={"peers": [], "port": port},
     ))
     client = ClientServerProvider()

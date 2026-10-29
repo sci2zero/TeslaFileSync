@@ -22,7 +22,7 @@ def providers_home(tmp_path, monkeypatch):
 
 
 def make_context(binary: str) -> SyncContext:
-    return SyncContext(pair_id="p", local="/tmp/x", direction="bidirectional", interval=0,
+    return SyncContext(pair_id="p", local="/tmp/x", interval=0,
                        provider_config={"binary": binary})
 
 

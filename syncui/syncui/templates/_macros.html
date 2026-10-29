@@ -16,17 +16,6 @@
 </select>
 {% endmacro %}
 
-{% macro radio_group(name, options, selected) %}
-<div class="radio-group">
-  {% for opt in options %}
-  <label>
-    <input type="radio" name="{{ name }}" value="{{ opt }}"{% if opt == selected %} checked{% endif %}>
-    {{ opt }}
-  </label>
-  {% endfor %}
-</div>
-{% endmacro %}
-
 {% macro text_input(name, value, readonly=false, placeholder='') %}
 <input type="text" name="{{ name }}" value="{{ value }}"
   {% if readonly %}readonly{% endif %}

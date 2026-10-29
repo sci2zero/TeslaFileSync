@@ -10,7 +10,6 @@ from syncd.platform.ipc import default_socket_address
 
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.config/syncd/config.toml")
 
-_VALID_DIRECTIONS = {"push", "pull", "bidirectional"}
 _VALID_LOG_LEVELS = {"debug", "info", "warning", "error", "critical"}
 
 
@@ -29,7 +28,6 @@ class PairConfig:
     id: str
     mode: str
     local: str
-    direction: str
     interval: int
     provider: dict[str, Any]
     exclude: tuple[str, ...] = ()
@@ -53,15 +51,9 @@ def _parse_daemon(raw: dict[str, Any]) -> DaemonConfig:
 
 def _parse_pair(raw: dict[str, Any], index: int) -> PairConfig:
     ctx = f"[[pairs]] entry {index}"
-    for required in ("id", "mode", "local", "direction"):
+    for required in ("id", "mode", "local"):
         if required not in raw:
             raise ConfigError(f"{ctx}: missing required field {required!r}")
-
-    direction = raw["direction"]
-    if direction not in _VALID_DIRECTIONS:
-        raise ConfigError(
-            f"{ctx}: direction must be one of {sorted(_VALID_DIRECTIONS)}, got {direction!r}"
-        )
 
     local = os.path.expanduser(raw["local"])
     interval = raw.get("interval", 0)
@@ -77,7 +69,6 @@ def _parse_pair(raw: dict[str, Any], index: int) -> PairConfig:
         id=raw["id"],
         mode=raw["mode"],
         local=local,
-        direction=direction,
         interval=interval,
         provider=provider,
         exclude=tuple(exclude_raw),
