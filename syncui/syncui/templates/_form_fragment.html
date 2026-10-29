@@ -42,7 +42,7 @@
           {% endfor %}
         </div>
       {% endcall %}
-      {% call field_row("interval", desc="Seconds between syncs. 0 = watch-based.") %}
+      {% call field_row("interval", desc="Seconds between sync cycles. 0 = default (30 s).") %}
         {{ number_input("pairs." ~ idx ~ ".interval", pair.interval, min=0) }}
       {% endcall %}
       {% call field_row("exclude", desc="fnmatch patterns to skip.") %}

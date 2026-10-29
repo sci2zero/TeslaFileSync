@@ -167,7 +167,7 @@ function renderPairCardHTML(idx, pair) {
       <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">
         ${modes.map(m => `<label><input type="radio" name="pairs.${idx}.mode" value="${m}"${m === pair.mode ? " checked" : ""}> ${m}</label>`).join("")}
       </div>`)}
-    ${fieldRowHTML("interval", false, `<input type="number" name="pairs.${idx}.interval" value="${pair.interval}" min="0" style="width:120px">`, "Seconds between syncs. 0 = watch-based.")}
+    ${fieldRowHTML("interval", false, `<input type="number" name="pairs.${idx}.interval" value="${pair.interval}" min="0" style="width:120px">`, "Seconds between sync cycles. 0 = default (30 s).")}
     ${fieldRowHTML("exclude", false, arrayFieldHTML(`pairs.${idx}.exclude`, pair.exclude))}
   </div>
   <div class="provider-section">

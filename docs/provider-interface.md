@@ -177,7 +177,7 @@ The `context` object passed in `start` has these fields:
 |-------|------|-------------|
 | `pair_id` | string | Stable identifier for this sync pair |
 | `local` | string | Absolute path of the local watch directory (after `~/` expansion: do it yourself) |
-| `interval` | int | Seconds between sync rounds. `0` means file-watch-triggered only |
+| `interval` | int | Seconds between sync rounds. `0` means the provider's default |
 | `provider_config` | object | Raw provider config from the TOML file, validated against the provider's SCHEMA |
 | `exclude` | []string | Extra glob patterns to exclude from indexing (on top of the built-in defaults) |
 
