@@ -185,3 +185,19 @@ peers = ["10.0.0.2"]
     cfg = load_config(path)
     save_config(cfg, path)
     assert load_config(path) == cfg
+
+
+def test_duplicate_pair_id_raises(tmp_path):
+    path = write_toml(tmp_path, """
+[[pairs]]
+id = "photos"
+mode = "p2p"
+local = "/tmp/a"
+
+[[pairs]]
+id = "photos"
+mode = "p2p"
+local = "/tmp/b"
+""")
+    with pytest.raises(ConfigError, match="duplicate pair id 'photos'"):
+        load_config(path)

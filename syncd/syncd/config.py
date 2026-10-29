@@ -82,6 +82,11 @@ def parse_config_from_dict(raw: dict[str, Any]) -> AppConfig:
     if not isinstance(pairs_raw, list):
         raise ConfigError("'pairs' must be an array of tables")
     pairs = [_parse_pair(p, i) for i, p in enumerate(pairs_raw)]
+    seen: set[str] = set()
+    for pair in pairs:
+        if pair.id in seen:
+            raise ConfigError(f"duplicate pair id {pair.id!r}")
+        seen.add(pair.id)
     return AppConfig(daemon=daemon, pairs=pairs)
 
 
