@@ -201,3 +201,30 @@ local = "/tmp/b"
 """)
     with pytest.raises(ConfigError, match="duplicate pair id 'photos'"):
         load_config(path)
+
+
+def test_node_id_is_a_pair_field(tmp_path):
+    path = write_toml(tmp_path, """
+[[pairs]]
+id = "photos"
+mode = "p2p"
+local = "/tmp/photos"
+node_id = "laptop"
+""")
+    assert load_config(path).pairs[0].node_id == "laptop"
+
+
+def test_node_id_in_provider_section_is_moved_to_pair(tmp_path):
+    path = write_toml(tmp_path, """
+[[pairs]]
+id = "photos"
+mode = "p2p"
+local = "/tmp/photos"
+
+[pairs.provider]
+peers = ["10.0.0.2"]
+node_id = "laptop"
+""")
+    pair = load_config(path).pairs[0]
+    assert pair.node_id == "laptop"
+    assert "node_id" not in pair.provider

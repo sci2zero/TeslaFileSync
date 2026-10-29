@@ -32,6 +32,9 @@
       {% call field_row("local", required=true) %}
         {{ text_input("pairs." ~ idx ~ ".local", pair.local) }}
       {% endcall %}
+      {% call field_row("node_id", desc="Name of this node. Empty = generated once and kept.") %}
+        {{ text_input("pairs." ~ idx ~ ".node_id", pair.node_id) }}
+      {% endcall %}
       {% call field_row("mode", required=true) %}
         <div class="radio-group" onchange="onModeChange(event, this.closest('.pair-card'))">
           {% for m in schemas %}

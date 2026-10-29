@@ -30,6 +30,7 @@ Repeat this block for each directory you want to sync. Each pair runs its own pr
 id        = "work-docs"
 mode      = "client-server"
 local     = "~/Documents/Work"
+node_id   = "laptop"
 interval  = 300
 exclude   = ["*.log", "*.pdf", "build/*"]
 
@@ -42,10 +43,11 @@ exclude   = ["*.log", "*.pdf", "build/*"]
 | `id` | yes | Unique name of the pair, used in `synctl sync trigger <id>`. Two pairs with the same id are rejected. |
 | `mode` | yes | Provider: `client-server`, `p2p` or `external` |
 | `local` | yes | Local directory to sync. `~` is expanded. |
+| `node_id` | no | Name of this node in the pair. If omitted, a random id is generated on first start and kept in `.synak/node_id` inside the pair directory. Every provider receives it, so it stays the same if the pair switches provider. |
 | `interval` | no | Seconds between sync cycles with other nodes. `0` (default) means the provider default of 30 s. Local changes are always watched; the interval only controls how often they are exchanged. |
 | `exclude` | no | fnmatch patterns to skip, matched against the file name and the relative path. Added to the built-in excludes (`*.swp`, `*-swp`, `*.swpx`, `*.swn`, `.DS_Store`, `Thumbs.db`, `*.tmp`, `*.temp`, `*~`). |
 
-`[pairs.provider]` is validated against the schema of the chosen provider before the pair is started.
+`[pairs.provider]` is validated against the schema of the chosen provider before the pair is started. Older configs that set `node_id` inside `[pairs.provider]` still work; it is treated as the pair `node_id`.
 
 ---
 
@@ -56,7 +58,6 @@ exclude   = ["*.log", "*.pdf", "build/*"]
 mode              = "server"
 host              = "0.0.0.0"
 port              = 5000
-node_id           = "my-node"
 conflict_strategy = "keep-both"
 sync_deletes      = true
 ```
@@ -66,7 +67,6 @@ sync_deletes      = true
 | `mode` | yes | `server` listens for connections, `client` connects to the server |
 | `port` | yes | TCP port |
 | `host` | no | Server: interface to bind (default `0.0.0.0`). Client: server hostname (default `127.0.0.1`). |
-| `node_id` | no | Name of this node. If omitted, a random id is generated on every start, so setting it is recommended. |
 | `conflict_strategy` | no | `last-write-wins` (default) keeps the newer file; `keep-both` renames the local copy to `file.conflict.<node_id>` |
 | `sync_deletes` | no | `true` (default). If `false`, deletions made on other nodes are not applied locally. |
 | `verify_interval` | no | Seconds between integrity checks that re-hash files and compare them with the index. `0` (default) disables them. |
@@ -80,7 +80,6 @@ sync_deletes      = true
 [pairs.provider]
 peers             = ["192.168.1.10:5000", "192.168.1.11"]
 port              = 5000
-node_id           = "node-a"
 conflict_strategy = "keep-both"
 ```
 
@@ -88,7 +87,6 @@ conflict_strategy = "keep-both"
 |-------|----------|-------------|
 | `peers` | yes | Other nodes as `host` or `host:port`. A bare host uses the pair-derived port. |
 | `port` | no | Port this node listens on. If omitted, it is derived from the pair `id`, so nodes using the same `id` find each other without setting it. |
-| `node_id` | no | Same as client-server |
 | `conflict_strategy` | no | Same as client-server |
 | `sync_deletes` | no | Same as client-server |
 | `verify_interval` | no | Same as client-server |
@@ -125,13 +123,13 @@ log_level  = "info"
 id        = "work-docs"
 mode      = "client-server"
 local     = "~/Documents/Work"
+node_id   = "laptop"
 interval  = 60
 
 [pairs.provider]
 mode              = "client"
 host              = "myserver.example.com"
 port              = 5000
-node_id           = "laptop"
 conflict_strategy = "keep-both"
 sync_deletes      = false
 
@@ -140,11 +138,11 @@ sync_deletes      = false
 id        = "photos"
 mode      = "p2p"
 local     = "~/Pictures"
+node_id   = "laptop"
 interval  = 30
 
 [pairs.provider]
 peers    = ["192.168.1.10", "192.168.1.11"]
-node_id  = "laptop"
 ```
 
 ---

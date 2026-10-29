@@ -20,7 +20,6 @@ import hashlib
 import logging
 import os
 import time
-import uuid
 from typing import Any
 
 from syncd.sync.base import SyncContext, ProviderStatus
@@ -59,7 +58,6 @@ class P2PProvider(BaseSyncProvider):
                 "type": "integer",
                 "description": "Explicit listen port. Overrides the pair-derived port.",
             },
-            "node_id": {"type": "string"},
             "conflict_strategy": {
                 "type": "string",
                 "enum": ["last-write-wins", "keep-both"],
@@ -88,7 +86,7 @@ class P2PProvider(BaseSyncProvider):
     async def start(self, context: SyncContext) -> None:
         self._context = context
         cfg = context.provider_config
-        self._node_id = cfg.get("node_id") or str(uuid.uuid4())[:8]
+        self._node_id = context.node_id
         self._conflict_strategy = cfg.get("conflict_strategy", "last-write-wins")
 
         await self._init_index(context)

@@ -83,7 +83,8 @@ Sent once, before any other command. The binary must initialise itself and begin
     "local":          "/home/user/sync-dir",
     "interval":       30,
     "provider_config": { ... },
-    "exclude":        []
+    "exclude":        [],
+    "node_id":        "a1b2c3d4"
   }
 }
 ```
@@ -180,6 +181,7 @@ The `context` object passed in `start` has these fields:
 | `interval` | int | Seconds between sync rounds. `0` means the provider's default |
 | `provider_config` | object | Raw provider config from the TOML file, validated against the provider's SCHEMA |
 | `exclude` | []string | Extra glob patterns to exclude from indexing (on top of the built-in defaults) |
+| `node_id` | string | Identifier of this node in the pair. Stable across restarts: taken from the config or generated once by `syncd` and kept in `.synak/node_id`. Use it as this node's key in vector clocks. |
 
 `provider_config` contains whatever fields you declare in your Python wrapper's `SCHEMA`. It is passed through verbatim — validate or default your own fields from it.
 

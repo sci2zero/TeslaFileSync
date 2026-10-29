@@ -6,6 +6,7 @@ import jsonschema
 
 from syncd.config import PairConfig
 from syncd.sync.base import SyncContext, SyncProvider, ProviderStatus
+from syncd.sync.identity import load_or_create_node_id
 from syncd.sync.providers.subprocess import SubprocessProvider
 from syncd.sync.registry import registry, UnknownProviderError
 
@@ -127,6 +128,7 @@ class SyncManager:
             interval=pair.interval,
             provider_config=pair.provider,
             exclude=list(pair.exclude),
+            node_id=pair.node_id or await asyncio.to_thread(load_or_create_node_id, pair.local),
         )
         provider = provider_cls()
         try:

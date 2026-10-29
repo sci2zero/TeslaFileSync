@@ -14,6 +14,7 @@ def make_pair(
     local="/tmp/x",
     interval=0,
     provider=None,
+    node_id="test-node",
 ) -> PairConfig:
     return PairConfig(
         id=id,
@@ -21,6 +22,7 @@ def make_pair(
         local=local,
         interval=interval,
         provider=provider or {},
+        node_id=node_id,
     )
 
 
@@ -271,5 +273,45 @@ async def test_all_statuses_reports_failing_pair_as_error():
         assert statuses["ok"].state == "idle"
         assert statuses["bad"].state == "error"
         assert statuses["bad"].error == "provider crashed"
+    finally:
+        mgr_module.registry = original
+
+
+async def test_generated_node_id_is_kept_across_restarts(tmp_path):
+    import syncd.sync.manager as mgr_module
+    original = mgr_module.registry
+    try:
+        reg = ProviderRegistry()
+        reg.register(MockProvider)
+        mgr_module.registry = reg
+        pair = make_pair(local=str(tmp_path), node_id="")
+
+        first = SyncManager()
+        await first.start_all([pair])
+        node_id = first._providers["p1"]._context.node_id
+        await first.stop_all()
+
+        second = SyncManager()
+        await second.start_all([pair])
+
+        assert node_id
+        assert second._providers["p1"]._context.node_id == node_id
+        assert (tmp_path / ".synak" / "node_id").read_text().strip() == node_id
+    finally:
+        mgr_module.registry = original
+
+
+async def test_configured_node_id_is_passed_to_provider(tmp_path):
+    import syncd.sync.manager as mgr_module
+    original = mgr_module.registry
+    try:
+        reg = ProviderRegistry()
+        reg.register(MockProvider)
+        mgr_module.registry = reg
+        manager = SyncManager()
+        await manager.start_all([make_pair(local=str(tmp_path), node_id="laptop")])
+
+        assert manager._providers["p1"]._context.node_id == "laptop"
+        assert not (tmp_path / ".synak").exists()
     finally:
         mgr_module.registry = original
