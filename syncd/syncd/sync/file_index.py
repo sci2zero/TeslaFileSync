@@ -6,8 +6,9 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from syncd.sync.vector_clock import VectorClock
@@ -23,6 +24,17 @@ _DEFAULT_EXCLUDES = {
     "*.tmp", "*.temp",
     "*~",
 }
+
+
+def is_safe_rel_path(path: str) -> bool:
+    parts = re.split(r"[\\/]", path)
+    return (
+        bool(path)
+        and not PureWindowsPath(path).drive
+        and "" not in parts
+        and ".." not in parts
+        and parts[0] != METADATA_DIR
+    )
 
 
 def _is_excluded(fname: str, rel_path: str, excludes: set[str]) -> bool:
@@ -54,6 +66,8 @@ class FileEntry:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FileEntry:
+        if not isinstance(data["path"], str) or not is_safe_rel_path(data["path"]):
+            raise ValueError(f"unsafe path {data['path']!r}")
         return cls(
             path=data["path"],
             checksum=data["checksum"],
@@ -61,6 +75,11 @@ class FileEntry:
             vector_clock_data=data["vector_clock_data"],
             deleted=data.get("deleted", False),
         )
+
+
+def entries_from_dict(raw: dict[str, Any]) -> dict[str, FileEntry]:
+    entries = (FileEntry.from_dict(v) for v in raw.values())
+    return {e.path: e for e in entries}
 
 
 def _sha256(abs_path: str) -> str:
@@ -88,7 +107,7 @@ class FileIndex:
             return
         with open(self._index_path) as f:
             raw: dict[str, Any] = json.load(f)
-        self._entries = {k: FileEntry.from_dict(v) for k, v in raw.items()}
+        self._entries = entries_from_dict(raw)
 
     def save(self) -> None:
         os.makedirs(self._meta_dir, exist_ok=True)

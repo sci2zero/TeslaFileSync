@@ -248,6 +248,9 @@ class BaseSyncProvider(SyncProvider):
         self, from_path: str, to_path: str, new_entry: FileEntry, label: str
     ) -> None:
         assert self._index is not None and self._context is not None
+        if to_path != new_entry.path:
+            logger.warning("Rename %r → %r rejected: target does not match entry", from_path, to_path)
+            return
         abs_from = os.path.join(self._context.local, from_path.replace("/", os.sep))
         abs_to   = os.path.join(self._context.local, to_path.replace("/", os.sep))
 

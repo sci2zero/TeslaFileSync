@@ -23,7 +23,7 @@ import time
 from typing import Any
 
 from syncd.sync.base import SyncContext, ProviderStatus
-from syncd.sync.file_index import FileEntry
+from syncd.sync.file_index import FileEntry, entries_from_dict
 from syncd.sync.sync_engine import Action, reconcile
 from syncd.sync import protocol as proto
 from syncd.sync.providers._common import BaseSyncProvider, _close_writer
@@ -169,7 +169,7 @@ class P2PProvider(BaseSyncProvider):
             if not msg or msg["type"] != "HELLO":
                 return
             proto.check_hello_provider(msg, self.NAME)
-            remote_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
+            remote_index = entries_from_dict(msg.get("index", {}))
 
             await self._apply_remote_deletions(remote_index, peer_addr)
             await self._apply_local_renames(remote_index)
@@ -245,7 +245,7 @@ class P2PProvider(BaseSyncProvider):
             # Reply before checking so the initiator sees our provider name and fails too.
             await proto.send_message(writer, proto.hello_msg(self.NAME, self._node_id, self._index.all_entries_dict()))
             proto.check_hello_provider(msg, self.NAME)
-            peer_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
+            peer_index = entries_from_dict(msg.get("index", {}))
             await self._apply_remote_deletions(peer_index, str(peer))
 
             # Phase 1: serve GET_FILE requests until SYNC_DONE

@@ -20,7 +20,7 @@ import time
 from typing import Any
 
 from syncd.sync.base import SyncContext, ProviderStatus
-from syncd.sync.file_index import FileEntry
+from syncd.sync.file_index import FileEntry, entries_from_dict
 from syncd.sync.sync_engine import Action, reconcile
 from syncd.sync import protocol as proto
 from syncd.sync.providers._common import BaseSyncProvider, _close_writer
@@ -135,7 +135,7 @@ class ClientServerProvider(BaseSyncProvider):
             if not msg or msg["type"] != "HELLO":
                 return
             proto.check_hello_provider(msg, self.NAME)
-            client_index = {p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()}
+            client_index = entries_from_dict(msg.get("index", {}))
             await self._apply_remote_deletions(client_index, f"client {peer}")
 
             # Phase 1: serve GET_FILE requests from client until SYNC_DONE
@@ -199,9 +199,7 @@ class ClientServerProvider(BaseSyncProvider):
                 if not msg or msg["type"] != "HELLO":
                     return
                 proto.check_hello_provider(msg, self.NAME)
-                server_index = {
-                    p: FileEntry.from_dict(e) for p, e in msg.get("index", {}).items()
-                }
+                server_index = entries_from_dict(msg.get("index", {}))
 
                 await self._apply_remote_deletions(server_index, "server")
                 await self._apply_local_renames(server_index)
