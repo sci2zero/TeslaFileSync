@@ -36,9 +36,14 @@ def reconcile(local: FileEntry, remote: FileEntry, node_id: str) -> Action:
     return Action.CONFLICT
 
 
+def remote_wins(local: FileEntry, remote: FileEntry) -> bool:
+    """Pick the same winner on both nodes: newer mtime, ties broken by checksum."""
+    return (remote.modified_time, remote.checksum) > (local.modified_time, local.checksum)
+
+
 def resolve_last_write_wins(local: FileEntry, remote: FileEntry) -> Action:
     """Compare modification timestamps; keep the newer file."""
-    return Action.ACCEPT_REMOTE if remote.modified_time > local.modified_time else Action.KEEP_LOCAL
+    return Action.ACCEPT_REMOTE if remote_wins(local, remote) else Action.KEEP_LOCAL
 
 
 def resolve_keep_both(
@@ -48,10 +53,12 @@ def resolve_keep_both(
     watch_dir: str,
 ) -> Action:
     """
-    Keep both versions by renaming the local copy with a .conflict suffix.
-    Idempotent: renaming twice produces the same result (CRDT property).
-    Returns ACCEPT_REMOTE so the caller writes the remote version to the original path.
+    Keep both versions: the winner stays at the original path, the local copy is saved
+    with a .syncd-conflict suffix when it loses. When the local version wins, the other
+    node saves its own copy once it receives ours.
     """
+    if not remote_wins(local, remote):
+        return Action.KEEP_LOCAL
     conflict_path = os.path.join(watch_dir, f"{local.path}.syncd-conflict.{node_id}")
     src = os.path.join(watch_dir, local.path)
     if os.path.exists(src) and not os.path.exists(conflict_path):

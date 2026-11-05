@@ -10,7 +10,7 @@ from watchfiles import awatch, Change
 
 from syncd.sync.base import SyncContext, SyncProvider
 from syncd.sync.file_index import FileEntry, FileIndex, METADATA_DIR
-from syncd.sync.sync_engine import Action, reconcile, resolve_last_write_wins, resolve_keep_both
+from syncd.sync.sync_engine import Action, reconcile, remote_wins, resolve_last_write_wins, resolve_keep_both
 from syncd.sync import protocol as proto
 
 logger = logging.getLogger(__name__)
@@ -133,6 +133,14 @@ class BaseSyncProvider(SyncProvider):
                 if self._index.is_corrupted(path):
                     needed.append(path)
         return needed
+
+    def _should_push(self, local: FileEntry, remote: FileEntry | None) -> bool:
+        if remote is None or remote.deleted:
+            return True
+        action = reconcile(remote, local, self._node_id)
+        if action == Action.CONFLICT:
+            return local.checksum != remote.checksum and not remote_wins(local, remote)
+        return action == Action.ACCEPT_REMOTE
 
     def _resolve_conflict(self, local: FileEntry, remote: FileEntry, path: str) -> Action:
         if local.checksum == remote.checksum:

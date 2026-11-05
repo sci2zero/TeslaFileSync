@@ -67,7 +67,7 @@ sync_deletes      = true
 | `mode` | yes | `server` listens for connections, `client` connects to the server |
 | `port` | yes | TCP port |
 | `host` | no | Server: interface to bind (default `0.0.0.0`). Client: server hostname (default `127.0.0.1`). |
-| `conflict_strategy` | no | `last-write-wins` (default) keeps the newer file; `keep-both` renames the local copy to `file.conflict.<node_id>` |
+| `conflict_strategy` | no | `last-write-wins` (default) keeps the newer file; `keep-both` also keeps the older one as `file.syncd-conflict.<node_id>`, where `node_id` is the node that held it |
 | `sync_deletes` | no | `true` (default). If `false`, deletions made on other nodes are not applied locally. |
 | `verify_interval` | no | Seconds between integrity checks that re-hash files and compare them with the index. `0` (default) disables them. |
 | `verify_sleep` | no | Seconds to wait between hashing two files during an integrity check. Default `0.1`. |

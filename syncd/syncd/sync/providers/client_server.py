@@ -21,7 +21,6 @@ from typing import Any
 
 from syncd.sync.base import SyncContext, ProviderStatus
 from syncd.sync.file_index import FileEntry, entries_from_dict
-from syncd.sync.sync_engine import Action, reconcile
 from syncd.sync import protocol as proto
 from syncd.sync.providers._common import BaseSyncProvider, _close_writer
 
@@ -240,10 +239,7 @@ class ClientServerProvider(BaseSyncProvider):
                 for path, local_entry in self._index.all_entries().items():
                     if local_entry.deleted:
                         continue
-                    server_entry = server_index.get(path)
-                    if (server_entry is None
-                            or server_entry.deleted
-                            or reconcile(server_entry, local_entry, self._node_id) == Action.ACCEPT_REMOTE):
+                    if self._should_push(local_entry, server_index.get(path)):
                         if path in renames:
                             await proto.send_message(writer, proto.rename_msg(renames[path], path, local_entry.to_dict()))
                             logger.info("Sent rename %r → %r to server", renames[path], path)
