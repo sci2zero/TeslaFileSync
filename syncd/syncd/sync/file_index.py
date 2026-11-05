@@ -51,6 +51,7 @@ class FileEntry:
     modified_time: float            # local mtime at last observed change
     vector_clock_data: dict[str, Any]  # serialised VectorClock (primitives only)
     deleted: bool = False           # Bayou-style tombstone
+    size: int = 0
 
     def get_clock(self, node_id: str) -> VectorClock:
         return VectorClock.from_dict(self.vector_clock_data, node_id)
@@ -62,6 +63,7 @@ class FileEntry:
             "modified_time": self.modified_time,
             "vector_clock_data": self.vector_clock_data,
             "deleted": self.deleted,
+            "size": self.size,
         }
 
     @classmethod
@@ -74,12 +76,17 @@ class FileEntry:
             modified_time=data["modified_time"],
             vector_clock_data=data["vector_clock_data"],
             deleted=data.get("deleted", False),
+            size=data.get("size", 0),
         )
 
 
 def entries_from_dict(raw: dict[str, Any]) -> dict[str, FileEntry]:
     entries = (FileEntry.from_dict(v) for v in raw.values())
     return {e.path: e for e in entries}
+
+
+def _same_metadata(entry: FileEntry, st: os.stat_result) -> bool:
+    return abs(st.st_mtime - entry.modified_time) <= 0.001 and st.st_size == entry.size
 
 
 def _sha256(abs_path: str) -> str:
@@ -128,32 +135,8 @@ class FileIndex:
                     continue
                 seen.add(rel_path)
 
-                mtime = os.path.getmtime(abs_path)
-                existing = self._entries.get(rel_path)
-
-                if existing is None or existing.deleted:
-                    checksum = _sha256(abs_path)
-                    clock = VectorClock(self._node_id)
-                    clock.increment()
-                    self._entries[rel_path] = FileEntry(
-                        path=rel_path,
-                        checksum=checksum,
-                        modified_time=mtime,
-                        vector_clock_data=clock.to_dict(),
-                    )
+                if self.scan_one(rel_path):
                     dirty.add(rel_path)
-                elif abs(mtime - existing.modified_time) > 0.001:
-                    checksum = _sha256(abs_path)
-                    if checksum != existing.checksum:
-                        clock = existing.get_clock(self._node_id)
-                        clock.increment()
-                        self._entries[rel_path] = FileEntry(
-                            path=rel_path,
-                            checksum=checksum,
-                            modified_time=mtime,
-                            vector_clock_data=clock.to_dict(),
-                        )
-                        dirty.add(rel_path)
 
         # Detect deletions — mark with tombstone
         for rel_path, entry in list(self._entries.items()):
@@ -171,21 +154,24 @@ class FileIndex:
         abs_path = str(Path(self._watch_dir) / rel_path)
         if not os.path.exists(abs_path) or os.path.isdir(abs_path):
             return False
-        mtime = os.path.getmtime(abs_path)
+        st = os.stat(abs_path)
         existing = self._entries.get(rel_path)
         stable = existing is not None and not existing.deleted
-        if stable and abs(mtime - existing.modified_time) <= 0.001:  # type: ignore[union-attr]
+        if stable and _same_metadata(existing, st):  # type: ignore[arg-type]
             return False
         checksum = _sha256(abs_path)
         if stable and checksum == existing.checksum:  # type: ignore[union-attr]
+            existing.modified_time = st.st_mtime  # type: ignore[union-attr]
+            existing.size = st.st_size  # type: ignore[union-attr]
             return False
         clock = existing.get_clock(self._node_id) if existing is not None else VectorClock(self._node_id)
         clock.increment()
         self._entries[rel_path] = FileEntry(
             path=rel_path,
             checksum=checksum,
-            modified_time=mtime,
+            modified_time=st.st_mtime,
             vector_clock_data=clock.to_dict(),
+            size=st.st_size,
         )
         return True
 
@@ -275,12 +261,13 @@ class FileIndex:
             if content is not None:
                 with open(abs_path, "wb") as f:
                     f.write(content)
-            # Record the actual mtime after writing so future scans don't rehash
-            actual_mtime = os.path.getmtime(abs_path) if os.path.exists(abs_path) else entry.modified_time
+            # Record the actual mtime and size after writing so future scans don't rehash
+            st = os.stat(abs_path) if os.path.exists(abs_path) else None
             self._entries[entry.path] = FileEntry(
                 path=entry.path,
                 checksum=entry.checksum,
-                modified_time=actual_mtime,
+                modified_time=st.st_mtime if st else entry.modified_time,
                 vector_clock_data=entry.vector_clock_data,
                 deleted=entry.deleted,
+                size=st.st_size if st else entry.size,
             )
