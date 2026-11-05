@@ -34,3 +34,16 @@ def test_size_change_is_detected_when_mtime_is_restored(tmp_path):
     os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns))
     assert index.scan_one("a.txt")
     assert index.get("a.txt").size == len("longer")
+
+
+def test_apply_remote_merges_concurrent_vectors(tmp_path):
+    from syncd.sync.file_index import FileIndex
+    from syncd.sync.vector_clock import VectorClock
+    (tmp_path / "a.txt").write_text("local")
+    index = FileIndex(str(tmp_path), "n1")
+    index.scan()
+    remote_clock = VectorClock("n2", {"n2": 1}).to_dict()
+    remote = FileEntry(path="a.txt", checksum="x", modified_time=0.0, vector_clock_data=remote_clock)
+    index.apply_remote(remote, b"remote")
+    merged = index.get("a.txt").get_clock("n1")
+    assert merged.equals(VectorClock("n1", {"n1": 1, "n2": 1}))

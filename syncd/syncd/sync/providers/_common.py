@@ -151,8 +151,13 @@ class BaseSyncProvider(SyncProvider):
         )
         if self._conflict_strategy == "keep-both":
             assert self._context is not None
-            return resolve_keep_both(local, remote, self._node_id, self._context.local)
-        return resolve_last_write_wins(local, remote)
+            action = resolve_keep_both(local, remote, self._node_id, self._context.local)
+        else:
+            action = resolve_last_write_wins(local, remote)
+        if action == Action.KEEP_LOCAL:
+            assert self._index is not None
+            self._index.merge_clock(path, remote)
+        return action
 
     async def _apply_incoming_stream(
         self,

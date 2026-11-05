@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -236,6 +236,17 @@ class FileIndex:
         except OSError:
             return False
 
+    def _merged_clock(self, entry: FileEntry) -> dict[str, Any]:
+        clock = entry.get_clock(self._node_id)
+        existing = self._entries.get(entry.path)
+        if existing is not None:
+            clock.update(existing.get_clock(self._node_id))
+        return clock.to_dict()
+
+    def merge_clock(self, rel_path: str, other: FileEntry) -> None:
+        entry = self._entries[rel_path]
+        entry.vector_clock_data = self._merged_clock(other)
+
     def mark_corrupted(self, rel_path: str) -> None:
         self._corrupted.add(rel_path)
 
@@ -245,6 +256,7 @@ class FileIndex:
     def apply_remote(self, entry: FileEntry, content: bytes | None) -> None:
         """Write a remote file to disk and record it in the index."""
         self._corrupted.discard(entry.path)
+        entry = replace(entry, vector_clock_data=self._merged_clock(entry))
         abs_path = str(Path(self._watch_dir) / entry.path)
         if entry.deleted:
             if os.path.exists(abs_path):
