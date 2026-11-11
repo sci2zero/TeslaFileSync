@@ -9,7 +9,7 @@ their own sync cycles so the propagation is eventually bidirectional.
 Academic grounding:
   - Vector clocks (Parker et al. 1983) for causal ordering
   - Bayou-style gossip (Terry et al. 1995) for propagation
-  - Dirty-set tracking (Ramsey & Csirmaz 2001)
+  - Dirty-set tracking (Balasubramaniam & Pierce 1998)
   - CRDT idempotence properties (Shapiro et al. 2011)
 """
 

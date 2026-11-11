@@ -95,7 +95,7 @@ Response: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
 #### `stop`
 
-Sent once to request graceful shutdown. The binary must flush any in-progress state (save the index, finish any active session if feasible), respond, and then exit. `syncd` will `SIGKILL` if the process does not exit within a reasonable time.
+Sent once to request graceful shutdown. The binary must flush any in-progress state (save the index, finish any active session if feasible), respond, and then exit. `syncd` kills the process if it does not exit within 10 seconds.
 
 ```json
 {"cmd": "stop"}
@@ -168,6 +168,10 @@ Response:
 
 All output written to stderr is forwarded by `syncd` to its own logger at `DEBUG` level. Use it freely for logs. Log lines are not expected to follow any schema.
 
+### Timeouts and restarts
+
+Every response must arrive within 10 seconds. If it does not, or the process exits on its own, `syncd` kills it, reports the pair with state `"error"` and starts the program again: first after 5 seconds, then doubling the delay after each failed attempt, up to 300 seconds. After a restart `syncd` sends `start` with the same context and, if the pair was paused, `pause`. The delay resets once a restart succeeds.
+
 ---
 
 ## SyncContext fields
@@ -205,14 +209,16 @@ Providers that want to be interoperable with built-in Python nodes must read and
       "node_id": "n1",
       "clock":   { "n1": 3, "n2": 1 }
     },
-    "deleted": false
+    "deleted": false,
+    "size": 2048
   },
   "old/file.txt": {
     "path":             "old/file.txt",
     "checksum":         "",
     "modified_time":    0.0,
     "vector_clock_data": { "node_id": "n1", "clock": { "n1": 5 } },
-    "deleted": true
+    "deleted": true,
+    "size": 0
   }
 }
 ```
@@ -226,6 +232,13 @@ Providers that want to be interoperable with built-in Python nodes must read and
 | `modified_time` | float | Unix timestamp in seconds (with sub-second precision); `0.0` for tombstones |
 | `vector_clock_data` | object | Serialised vector clock (see below) |
 | `deleted` | bool | `true` = tombstone; `false` may be omitted |
+| `size` | int | File size in bytes; `0` for tombstones. May be omitted (treated as `0`) |
+
+A file is considered unchanged when both `modified_time` and `size` match the file on disk. Otherwise its SHA-256 is computed, and only a different checksum creates a new version.
+
+### Path rules
+
+`path` must be relative and stay inside the synced directory. Receivers must reject entries whose path is empty, absolute, starts with a drive or UNC prefix (`C:`, `\\server`), contains an empty or `..` component, or lies inside `.synak/`. Built-in nodes abort the session when they receive such a path.
 
 ### Vector clock format
 
@@ -241,7 +254,7 @@ Providers that want to be interoperable with built-in Python nodes must read and
 
 **Rules:**
 - Increment your own component on every local write or delete
-- On receiving a remote entry: take the component-wise maximum of clocks (Bayou merge)
+- When storing a remote entry, and when keeping the local version after a conflict, store the component-wise maximum of both clocks. Do not increment after merging: both nodes resolve a conflict the same way, so they must end up with the same clock
 - Tombstones carry a clock: increment before creating the tombstone so peers know the deletion is newer than the last live version
 
 ### Built-in excludes
@@ -270,11 +283,14 @@ Sent by both sides at session open. Carries the sender's full file index.
 
 ```json
 {
-  "type":    "HELLO",
-  "node_id": "n1",
-  "index":   { "<path>": <FileEntry>, ... }
+  "type":     "HELLO",
+  "provider": "p2p",
+  "node_id":  "n1",
+  "index":    { "<path>": <FileEntry>, ... }
 }
 ```
+
+`provider` is the sender's provider name. Each side checks it after the exchange and aborts the session if it differs from its own, so a program that wants to talk to built-in nodes must send their name (`"p2p"` or `"client-server"`).
 
 #### `GET_FILE`
 
@@ -360,7 +376,9 @@ Initiator → Listener : SYNC_DONE
 Initiator → Listener : ACK
 ```
 
-Both sides apply each other's deletions after the HELLO exchange (before the pull phase begins). Both sides save the index after ACK/session end.
+Both sides apply each other's deletions after the HELLO exchange (before the pull phase begins). A remote deletion is applied only when it is seen again in the next session, so that the second half of a rename has time to reach the other node's index. Both sides save the index after ACK/session end.
+
+Every received file, pulled or pushed, is reconciled against the receiver's **current** index before it is written, not against the index from `HELLO`. A local edit or another session may have changed the file in the meantime.
 
 ### Default listen port
 
@@ -389,8 +407,12 @@ When deciding which side's version of a file to keep:
 
 Taken from `provider_config["conflict_strategy"]` (default: `"last-write-wins"`):
 
-- **`last-write-wins`**: compare `modified_time`; keep whichever is newer.
-- **`keep-both`**: rename the local copy to `<path>.syncd-conflict.<node_id>`, then accept remote at the original path. No data is lost.
+Both strategies pick the winning version the same way, so that both nodes reach the same result even when they resolve the conflict at the same time: the version with the larger `modified_time` wins, and on a tie the one with the larger `checksum` (string comparison).
+
+- **`last-write-wins`**: keep the winner; the other version is lost.
+- **`keep-both`**: keep the winner at the original path. The node that holds the losing version first copies it to `<path>.syncd-conflict.<node_id>`, using its own `node_id`. No data is lost; the copy is synced like any other new file.
+
+When the local version wins, the receiver keeps it and merges the clocks, and the initiator pushes it in the push phase even though the clocks were concurrent. In general a file is pushed when the remote does not have it, has a tombstone, holds an older version, or holds a concurrent version that loses.
 
 A same-checksum shortcut applies before invoking any strategy: if both sides have the same SHA-256, treat it as KEEP_LOCAL regardless of clocks (avoids spurious conflict noise when clocks diverge on identical content).
 

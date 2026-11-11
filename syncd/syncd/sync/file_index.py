@@ -1,4 +1,4 @@
-"""FileIndex — tracks file state and dirty sets following Ramsey & Csirmaz (2001)."""
+"""FileIndex — tracks file state and dirty sets following Balasubramaniam & Pierce (1998)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Conflict detection and resolution following Ramsey & Csirmaz (2001) and Shapiro et al. (2011)."""
+"""Conflict detection and resolution using version vectors (Parker et al. 1983)."""
 
 from __future__ import annotations
 
