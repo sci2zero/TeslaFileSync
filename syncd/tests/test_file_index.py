@@ -75,3 +75,15 @@ def test_save_while_entries_are_added_from_another_thread(tmp_path):
     reloaded = FileIndex(str(tmp_path), "n1")
     reloaded.load()
     assert len(reloaded.all_entries()) == 6000
+
+
+def test_local_edit_clears_corruption_mark(tmp_path):
+    from syncd.sync.file_index import FileIndex
+    f = tmp_path / "a.txt"
+    f.write_text("one")
+    index = FileIndex(str(tmp_path), "n1")
+    index.scan()
+    index.mark_corrupted("a.txt")
+    f.write_text("edited")
+    assert index.scan_one("a.txt")
+    assert not index.is_corrupted("a.txt")

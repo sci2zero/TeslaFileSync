@@ -175,6 +175,7 @@ class FileIndex:
                 return False
             clock = existing.get_clock(self._node_id) if existing is not None else VectorClock(self._node_id)
             clock.increment()
+            self._corrupted.discard(rel_path)
             self._entries[rel_path] = FileEntry(
                 path=rel_path,
                 checksum=checksum,
