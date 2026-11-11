@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 from dataclasses import dataclass, replace
 from pathlib import Path, PureWindowsPath
 from typing import Any
@@ -106,6 +107,8 @@ class FileIndex:
         self._corrupted: set[str] = set()
         self._meta_dir = os.path.join(watch_dir, METADATA_DIR)
         self._index_path = os.path.join(self._meta_dir, INDEX_FILE)
+        self._lock = threading.RLock()
+        self._save_lock = threading.Lock()
 
     def load(self) -> None:
         os.makedirs(self._meta_dir, exist_ok=True)
@@ -117,9 +120,13 @@ class FileIndex:
         self._entries = entries_from_dict(raw)
 
     def save(self) -> None:
-        os.makedirs(self._meta_dir, exist_ok=True)
-        with open(self._index_path, "w") as f:
-            json.dump({k: v.to_dict() for k, v in self._entries.items()}, f, indent=2)
+        with self._save_lock:
+            data = self.all_entries_dict()
+            os.makedirs(self._meta_dir, exist_ok=True)
+            tmp_path = self._index_path + ".tmp"
+            with open(tmp_path, "w") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp_path, self._index_path)
 
     def scan(self) -> set[str]:
         """Re-scan the directory; return the dirty set (paths that changed)."""
@@ -139,10 +146,11 @@ class FileIndex:
                     dirty.add(rel_path)
 
         # Detect deletions — mark with tombstone
-        for rel_path, entry in list(self._entries.items()):
-            if rel_path not in seen and not entry.deleted:
-                self._entries[rel_path] = self._make_tombstone(rel_path, entry)
-                dirty.add(rel_path)
+        with self._lock:
+            for rel_path, entry in list(self._entries.items()):
+                if rel_path not in seen and not entry.deleted:
+                    self._entries[rel_path] = self._make_tombstone(rel_path, entry)
+                    dirty.add(rel_path)
 
         return dirty
 
@@ -155,35 +163,37 @@ class FileIndex:
         if not os.path.exists(abs_path) or os.path.isdir(abs_path):
             return False
         st = os.stat(abs_path)
-        existing = self._entries.get(rel_path)
+        existing = self.get(rel_path)
         stable = existing is not None and not existing.deleted
         if stable and _same_metadata(existing, st):  # type: ignore[arg-type]
             return False
         checksum = _sha256(abs_path)
-        if stable and checksum == existing.checksum:  # type: ignore[union-attr]
-            existing.modified_time = st.st_mtime  # type: ignore[union-attr]
-            existing.size = st.st_size  # type: ignore[union-attr]
-            return False
-        clock = existing.get_clock(self._node_id) if existing is not None else VectorClock(self._node_id)
-        clock.increment()
-        self._entries[rel_path] = FileEntry(
-            path=rel_path,
-            checksum=checksum,
-            modified_time=st.st_mtime,
-            vector_clock_data=clock.to_dict(),
-            size=st.st_size,
-        )
-        return True
+        with self._lock:
+            if stable and checksum == existing.checksum:  # type: ignore[union-attr]
+                existing.modified_time = st.st_mtime  # type: ignore[union-attr]
+                existing.size = st.st_size  # type: ignore[union-attr]
+                return False
+            clock = existing.get_clock(self._node_id) if existing is not None else VectorClock(self._node_id)
+            clock.increment()
+            self._entries[rel_path] = FileEntry(
+                path=rel_path,
+                checksum=checksum,
+                modified_time=st.st_mtime,
+                vector_clock_data=clock.to_dict(),
+                size=st.st_size,
+            )
+            return True
 
     def mark_dir_deleted(self, rel_dir: str) -> bool:
         """Tombstone all live entries whose path starts with rel_dir/. Returns True if any changed."""
         rel_dir = Path(rel_dir).as_posix()
         prefix = rel_dir + "/"
         dirty = False
-        for path, entry in list(self._entries.items()):
-            if path.startswith(prefix) and not entry.deleted:
-                self._entries[path] = self._make_tombstone(path, entry)
-                dirty = True
+        with self._lock:
+            for path, entry in list(self._entries.items()):
+                if path.startswith(prefix) and not entry.deleted:
+                    self._entries[path] = self._make_tombstone(path, entry)
+                    dirty = True
         return dirty
 
     def mark_deleted(self, rel_path: str) -> bool:
@@ -192,24 +202,28 @@ class FileIndex:
         abs_path = str(Path(self._watch_dir) / rel_path)
         if os.path.exists(abs_path):
             return False  # atomic-write rename: file is already back, not a real deletion
-        existing = self._entries.get(rel_path)
-        if existing is None or existing.deleted:
-            return False
-        self._entries[rel_path] = self._make_tombstone(rel_path, existing)
-        return True
+        with self._lock:
+            existing = self._entries.get(rel_path)
+            if existing is None or existing.deleted:
+                return False
+            self._entries[rel_path] = self._make_tombstone(rel_path, existing)
+            return True
 
     def get(self, path: str) -> FileEntry | None:
-        return self._entries.get(path)
+        with self._lock:
+            return self._entries.get(path)
 
     def update(self, entry: FileEntry) -> None:
-        self._entries[entry.path] = entry
+        with self._lock:
+            self._entries[entry.path] = entry
 
     def all_entries(self) -> dict[str, FileEntry]:
-        return dict(self._entries)
+        with self._lock:
+            return dict(self._entries)
 
     def all_entries_dict(self) -> dict[str, Any]:
-        """Serialize all entries directly — avoids an intermediate dict copy."""
-        return {p: e.to_dict() for p, e in self._entries.items()}
+        with self._lock:
+            return {p: e.to_dict() for p, e in self._entries.items()}
 
     def _make_tombstone(self, rel_path: str, existing: FileEntry) -> FileEntry:
         clock = existing.get_clock(self._node_id)
@@ -225,7 +239,7 @@ class FileIndex:
     def verify_one(self, rel_path: str) -> bool:
         """Return True if the file's on-disk checksum differs from the index (corruption)."""
         rel_path = Path(rel_path).as_posix()
-        entry = self._entries.get(rel_path)
+        entry = self.get(rel_path)
         if entry is None or entry.deleted:
             return False
         abs_path = str(Path(self._watch_dir) / rel_path)
@@ -244,19 +258,20 @@ class FileIndex:
         return clock.to_dict()
 
     def merge_clock(self, rel_path: str, other: FileEntry) -> None:
-        entry = self._entries[rel_path]
-        entry.vector_clock_data = self._merged_clock(other)
+        with self._lock:
+            entry = self._entries[rel_path]
+            entry.vector_clock_data = self._merged_clock(other)
 
     def mark_corrupted(self, rel_path: str) -> None:
-        self._corrupted.add(rel_path)
+        with self._lock:
+            self._corrupted.add(rel_path)
 
     def is_corrupted(self, rel_path: str) -> bool:
-        return rel_path in self._corrupted
+        with self._lock:
+            return rel_path in self._corrupted
 
     def apply_remote(self, entry: FileEntry, content: bytes | None) -> None:
         """Write a remote file to disk and record it in the index."""
-        self._corrupted.discard(entry.path)
-        entry = replace(entry, vector_clock_data=self._merged_clock(entry))
         abs_path = str(Path(self._watch_dir) / entry.path)
         if entry.deleted:
             if os.path.exists(abs_path):
@@ -265,7 +280,6 @@ class FileIndex:
                 while parent != self._watch_dir and os.path.isdir(parent) and not os.listdir(parent):
                     os.rmdir(parent)
                     parent = os.path.dirname(parent)
-            self._entries[entry.path] = entry
         else:
             parent = os.path.dirname(abs_path)
             if parent:
@@ -274,12 +288,9 @@ class FileIndex:
                 with open(abs_path, "wb") as f:
                     f.write(content)
             # Record the actual mtime and size after writing so future scans don't rehash
-            st = os.stat(abs_path) if os.path.exists(abs_path) else None
-            self._entries[entry.path] = FileEntry(
-                path=entry.path,
-                checksum=entry.checksum,
-                modified_time=st.st_mtime if st else entry.modified_time,
-                vector_clock_data=entry.vector_clock_data,
-                deleted=entry.deleted,
-                size=st.st_size if st else entry.size,
-            )
+            if os.path.exists(abs_path):
+                st = os.stat(abs_path)
+                entry = replace(entry, modified_time=st.st_mtime, size=st.st_size)
+        with self._lock:
+            self._corrupted.discard(entry.path)
+            self._entries[entry.path] = replace(entry, vector_clock_data=self._merged_clock(entry))

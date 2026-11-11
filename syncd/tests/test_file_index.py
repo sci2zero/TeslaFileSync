@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 
@@ -47,3 +48,30 @@ def test_apply_remote_merges_concurrent_vectors(tmp_path):
     index.apply_remote(remote, b"remote")
     merged = index.get("a.txt").get_clock("n1")
     assert merged.equals(VectorClock("n1", {"n1": 1, "n2": 1}))
+
+
+def test_save_while_entries_are_added_from_another_thread(tmp_path):
+    import threading
+    from syncd.sync.file_index import FileIndex
+    index = FileIndex(str(tmp_path), "n1")
+    for i in range(2000):
+        index.update(FileEntry(path=f"f{i}", checksum="x", modified_time=0.0, vector_clock_data={}))
+
+    def add():
+        for i in range(2000, 6000):
+            index.update(FileEntry(path=f"f{i}", checksum="x", modified_time=0.0, vector_clock_data={}))
+
+    old_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        writer = threading.Thread(target=add)
+        writer.start()
+        while writer.is_alive():
+            index.save()
+        writer.join()
+    finally:
+        sys.setswitchinterval(old_interval)
+    index.save()
+    reloaded = FileIndex(str(tmp_path), "n1")
+    reloaded.load()
+    assert len(reloaded.all_entries()) == 6000
