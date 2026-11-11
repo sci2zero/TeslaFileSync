@@ -210,13 +210,10 @@ class ClientServerProvider(BaseSyncProvider):
                     if resp and resp["type"] in ("FILE_DATA", "FILE_DATA_STREAM"):
                         entry = FileEntry.from_dict(resp["entry"])
                         if resp["type"] == "FILE_DATA_STREAM":
-                            abs_path = os.path.join(ctx.local, entry.path)
-                            await proto.recv_stream_to_disk(reader, resp["size"], abs_path)
-                            await asyncio.to_thread(self._index.apply_remote, entry, None)
+                            await self._apply_incoming_stream(reader, entry, resp["size"], "server")
                         else:
                             content = proto.decode_content(resp.get("content", ""))
-                            await asyncio.to_thread(self._index.apply_remote, entry, content)
-                        logger.info("Pulled %r from server", path)
+                            await self._apply_incoming_file(entry, content, "server")
 
                 await proto.send_message(writer, proto.sync_done_msg())
 

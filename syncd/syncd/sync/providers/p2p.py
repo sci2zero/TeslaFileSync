@@ -180,13 +180,10 @@ class P2PProvider(BaseSyncProvider):
                 if resp and resp["type"] in ("FILE_DATA", "FILE_DATA_STREAM"):
                     entry = FileEntry.from_dict(resp["entry"])
                     if resp["type"] == "FILE_DATA_STREAM":
-                        abs_path = os.path.join(self._context.local, entry.path)
-                        await proto.recv_stream_to_disk(reader, resp["size"], abs_path)
-                        await asyncio.to_thread(self._index.apply_remote, entry, None)
+                        await self._apply_incoming_stream(reader, entry, resp["size"], f"peer {peer_addr}")
                     else:
                         content = proto.decode_content(resp.get("content", ""))
-                        await asyncio.to_thread(self._index.apply_remote, entry, content)
-                    logger.info("Pulled %r from peer %s", path, peer_addr)
+                        await self._apply_incoming_file(entry, content, f"peer {peer_addr}")
 
             await proto.send_message(writer, proto.sync_done_msg())
 

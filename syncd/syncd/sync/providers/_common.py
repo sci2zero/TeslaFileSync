@@ -171,14 +171,8 @@ class BaseSyncProvider(SyncProvider):
         If rejected, the raw bytes are drained from the socket to keep protocol state valid.
         """
         assert self._index is not None and self._context is not None
-        local_entry = self._index.get(entry.path)
-        action = Action.ACCEPT_REMOTE if local_entry is None else reconcile(local_entry, entry, self._node_id)
-        accept = action == Action.ACCEPT_REMOTE
-        if action == Action.CONFLICT and local_entry is not None:
-            accept = self._resolve_conflict(local_entry, entry, entry.path) == Action.ACCEPT_REMOTE
-
         abs_path = os.path.join(self._context.local, entry.path)
-        if accept:
+        if self._should_accept(entry):
             await proto.recv_stream_to_disk(reader, size, abs_path)
             await asyncio.to_thread(self._index.apply_remote, entry, None)
             logger.info("Accepted %r from %s", entry.path, label)
@@ -192,18 +186,21 @@ class BaseSyncProvider(SyncProvider):
         self, entry: FileEntry, content: bytes, label: str
     ) -> None:
         assert self._index is not None
-        local_entry = self._index.get(entry.path)
-        if local_entry is None:
-            action = Action.ACCEPT_REMOTE
-        else:
-            action = reconcile(local_entry, entry, self._node_id)
-        if action == Action.ACCEPT_REMOTE:
+        if self._should_accept(entry):
             await asyncio.to_thread(self._index.apply_remote, entry, content)
             logger.info("Accepted %r from %s", entry.path, label)
-        elif action == Action.CONFLICT:
-            assert local_entry is not None
-            if self._resolve_conflict(local_entry, entry, entry.path) == Action.ACCEPT_REMOTE:
-                await asyncio.to_thread(self._index.apply_remote, entry, content)
+
+    def _should_accept(self, entry: FileEntry) -> bool:
+        assert self._index is not None
+        local_entry = self._index.get(entry.path)
+        if local_entry is None:
+            return True
+        action = reconcile(local_entry, entry, self._node_id)
+        if action == Action.CONFLICT:
+            action = self._resolve_conflict(local_entry, entry, entry.path)
+        if action == Action.KEEP_LOCAL:
+            return self._index.is_corrupted(entry.path) and local_entry.checksum == entry.checksum
+        return True
 
     async def _apply_remote_deletions(
         self, remote_index: dict[str, FileEntry], label: str
