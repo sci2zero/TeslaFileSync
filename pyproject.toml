@@ -17,4 +17,4 @@ syncui = { workspace = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["syncd/tests", "synctl/tests", "tests/integration"]
+testpaths = ["syncd/tests", "synctl/tests", "syncui/tests", "tests/integration"]
