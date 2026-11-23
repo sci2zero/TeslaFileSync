@@ -4,7 +4,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 import aiohttp.web as web
 
-from syncd.api.routes import build_routes, require_json
+from syncd.api.routes import build_routes, require_json, require_local_host
 from syncd.config import AppConfig, DaemonConfig, parse_config_from_dict
 from syncd.sync.base import ProviderStatus
 
@@ -61,7 +61,7 @@ class _NotFoundError(Exception):
 
 
 def make_app(daemon=None) -> web.Application:
-    app = web.Application(middlewares=[require_json])
+    app = web.Application(middlewares=[require_local_host, require_json])
     app["daemon"] = daemon or MockDaemon()
     app.add_routes(build_routes())
     return app
@@ -178,4 +178,9 @@ async def test_providers_returns_schemas(client):
 async def test_post_without_json_content_type_is_rejected(client, daemon):
     resp = await client.post("/shutdown", data="{}", headers={"Content-Type": "text/plain"})
     assert resp.status == 415
+
+
+async def test_request_with_foreign_host_is_rejected(client, daemon):
+    resp = await client.post("/shutdown", json={}, headers={"Host": "evil.example:24017"})
+    assert resp.status == 403
     assert not daemon.shutdown_called

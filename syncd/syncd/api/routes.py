@@ -38,6 +38,16 @@ def _error(message: str, status: int) -> web.Response:
     return _json({"error": message}, status=status)
 
 
+_LOCAL_HOSTS = {"syncd", "localhost", "127.0.0.1", "::1"}
+
+
+@web.middleware
+async def require_local_host(request: web.Request, handler: Any) -> web.StreamResponse:
+    if request.url.host not in _LOCAL_HOSTS:
+        return _error("Host not allowed", status=403)
+    return await handler(request)
+
+
 @web.middleware
 async def require_json(request: web.Request, handler: Any) -> web.StreamResponse:
     if request.method == "POST" and request.content_type != "application/json":
