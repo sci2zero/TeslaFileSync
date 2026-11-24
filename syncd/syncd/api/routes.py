@@ -38,7 +38,7 @@ def _error(message: str, status: int) -> web.Response:
     return _json({"error": message}, status=status)
 
 
-_LOCAL_HOSTS = {"syncd", "localhost", "127.0.0.1", "::1"}
+_LOCAL_HOSTS = {"syncd", "localhost", "127.0.0.1"}
 
 
 @web.middleware
