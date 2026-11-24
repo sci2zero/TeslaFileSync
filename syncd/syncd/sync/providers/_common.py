@@ -16,6 +16,20 @@ from syncd.sync import protocol as proto
 logger = logging.getLogger(__name__)
 
 
+def _move(src: str, dst: str) -> bool:
+    if not os.path.exists(src):
+        return False
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    os.rename(src, dst)
+    return True
+
+
+def _remove_empty_parents(parent: str, root: str) -> None:
+    while parent != root and os.path.isdir(parent) and not os.listdir(parent):
+        os.rmdir(parent)
+        parent = os.path.dirname(parent)
+
+
 async def _close_writer(writer: asyncio.StreamWriter) -> None:
     writer.close()
     try:
@@ -83,24 +97,29 @@ class BaseSyncProvider(SyncProvider):
         async for changes in awatch(watch_dir, watch_filter=lambda _c, p: not p.startswith(meta_prefix)):
             if self._index is None:
                 break
-            dirty = False
-            for change_type, path in changes:
-                rel = os.path.relpath(path, watch_dir)
-                if change_type == Change.deleted:
-                    if not self._index.mark_deleted(rel):
-                        dirty |= self._index.mark_dir_deleted(rel)
-                    else:
-                        dirty = True
-                elif os.path.isdir(path):
-                    for dirpath, _, filenames in os.walk(path):
-                        for fname in filenames:
-                            frel = os.path.relpath(os.path.join(dirpath, fname), watch_dir)
-                            dirty |= self._index.scan_one(frel)
-                else:
-                    dirty |= self._index.scan_one(rel)
+            dirty = await asyncio.to_thread(self._apply_local_changes, self._index, watch_dir, changes)
             if dirty:
                 await asyncio.to_thread(self._index.save)
                 logger.debug("Watch: index updated for pair %r", self._context.pair_id)
+
+    @staticmethod
+    def _apply_local_changes(index: FileIndex, watch_dir: str, changes: set[tuple[Change, str]]) -> bool:
+        dirty = False
+        for change_type, path in changes:
+            rel = os.path.relpath(path, watch_dir)
+            if change_type == Change.deleted:
+                if not index.mark_deleted(rel):
+                    dirty |= index.mark_dir_deleted(rel)
+                else:
+                    dirty = True
+            elif os.path.isdir(path):
+                for dirpath, _, filenames in os.walk(path):
+                    for fname in filenames:
+                        frel = os.path.relpath(os.path.join(dirpath, fname), watch_dir)
+                        dirty |= index.scan_one(frel)
+            else:
+                dirty |= index.scan_one(rel)
+        return dirty
 
     def _compute_needed(self, remote_index: dict[str, FileEntry]) -> list[str]:
         assert self._index is not None
@@ -265,9 +284,7 @@ class BaseSyncProvider(SyncProvider):
         abs_to   = os.path.join(self._context.local, to_path.replace("/", os.sep))
 
         from_entry = self._index.get(from_path)
-        if os.path.exists(abs_from) and from_entry and from_entry.checksum == new_entry.checksum:
-            os.makedirs(os.path.dirname(abs_to), exist_ok=True)
-            os.rename(abs_from, abs_to)
+        if from_entry and from_entry.checksum == new_entry.checksum and await asyncio.to_thread(_move, abs_from, abs_to):
             old_clock = from_entry.get_clock(self._node_id)
             old_clock.increment()
             tombstone = FileEntry(
@@ -276,10 +293,7 @@ class BaseSyncProvider(SyncProvider):
             )
             await asyncio.to_thread(self._index.apply_remote, tombstone, None)
             await asyncio.to_thread(self._index.apply_remote, new_entry, None)
-            parent = os.path.dirname(abs_from)
-            while parent != self._context.local and os.path.isdir(parent) and not os.listdir(parent):
-                os.rmdir(parent)
-                parent = os.path.dirname(parent)
+            await asyncio.to_thread(_remove_empty_parents, os.path.dirname(abs_from), self._context.local)
             logger.info("Renamed %r → %r from %s", from_path, to_path, label)
         else:
             logger.warning("Rename %r → %r: source missing, will re-sync next round", from_path, to_path)

@@ -87,3 +87,27 @@ def test_local_edit_clears_corruption_mark(tmp_path):
     f.write_text("edited")
     assert index.scan_one("a.txt")
     assert not index.is_corrupted("a.txt")
+
+
+def test_rescan_uses_entry_written_during_hashing(tmp_path, monkeypatch):
+    from syncd.sync import file_index
+    from syncd.sync.file_index import FileIndex
+    from syncd.sync.vector_clock import VectorClock
+    f = tmp_path / "a.txt"
+    f.write_text("one")
+    index = FileIndex(str(tmp_path), "n1")
+    index.scan()
+    f.write_text("remote")
+    real_sha256 = file_index._sha256
+    remote = FileEntry(
+        path="a.txt", checksum=real_sha256(str(f)), modified_time=0.0,
+        vector_clock_data=VectorClock("n2", {"n2": 1}).to_dict(),
+    )
+
+    def sha256_racing_with_pull(path):
+        index.apply_remote(remote, None)
+        return real_sha256(path)
+
+    monkeypatch.setattr(file_index, "_sha256", sha256_racing_with_pull)
+    assert not index.scan_one("a.txt")
+    assert index.get("a.txt").get_clock("n1").equals(VectorClock("n1", {"n1": 1, "n2": 1}))

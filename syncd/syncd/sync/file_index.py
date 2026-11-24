@@ -169,6 +169,8 @@ class FileIndex:
             return False
         checksum = _sha256(abs_path)
         with self._lock:
+            existing = self._entries.get(rel_path)
+            stable = existing is not None and not existing.deleted
             if stable and checksum == existing.checksum:  # type: ignore[union-attr]
                 existing.modified_time = st.st_mtime  # type: ignore[union-attr]
                 existing.size = st.st_size  # type: ignore[union-attr]
